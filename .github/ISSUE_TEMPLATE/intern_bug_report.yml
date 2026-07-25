@@ -31,7 +31,7 @@ body:
     id: version
     attributes:
       label: NSM Flow version
-      placeholder: Example - 0.2.0
+      placeholder: Example - 0.3.0-alpha.1
     validations:
       required: true
   - type: textarea

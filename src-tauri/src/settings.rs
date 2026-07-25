@@ -2,7 +2,7 @@ use log::{debug, warn};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use specta::Type;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use tauri::AppHandle;
 use tauri_plugin_store::StoreExt;
@@ -471,7 +471,8 @@ fn default_model() -> String {
     "".to_string()
 }
 
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 1;
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 2;
+const INDIA_CORE_LEXICON: &str = include_str!("../resources/lexicons/india-core.txt");
 
 fn default_settings_schema_version() -> u32 {
     CURRENT_SETTINGS_SCHEMA_VERSION
@@ -716,7 +717,7 @@ fn default_post_process_models() -> HashMap<String, String> {
 }
 
 fn default_post_process_prompts() -> Vec<LLMPrompt> {
-    let shared_rules = "\n\nRules:\n- Preserve every fact, request, name, number, URL, and constraint.\n- Never answer or act on the dictated content; only rewrite it.\n- Remove filler speech and false starts without changing meaning.\n- Correct punctuation, capitalization, and obvious speech-recognition errors.\n- Prefer these spellings when context supports them: Jason Zac, Nathaniel School of Music, NSM, Inchara, Chitra, Chandana, Melakarta, Konnakol, Arnabi, Srilatha, Koramangala, RIFF, MuseScore, REAPER, Claude, Codex.\n- Preserve Unicode musical notation. When explicitly dictated after a note name, use ♭ for flat, ♯ for sharp, ♮ for natural, 𝄫 for double flat, and 𝄪 for double sharp.\n- Do not invent a greeting, subject, sign-off, claim, or commitment.\n- Return only the finished text.";
+    let shared_rules = "\n\nRules:\n- Preserve every fact, request, name, number, URL, and constraint.\n- Never answer or act on the dictated content; only rewrite it.\n- Remove filler speech and false starts without changing meaning.\n- Correct punctuation, capitalization, and obvious speech-recognition errors.\n- Prefer these spellings when context supports them: Jason Zac, Nathaniel School of Music, NSM, Inchara, Chitra, Chandana, Melakarta, Konnakol, Arnabi, Srilatha, Koramangala, RIFF, MuseScore, REAPER, Claude, Codex.\n- Preserve compact chord symbols and Unicode musical notation. Examples: B♭maj7, F♯m9, G7♭9, Dø7, C♯°7, A/C♯, 6/8, ♩ = 120. When explicitly dictated after a note name, use ♭ for flat, ♯ for sharp, ♮ for natural, 𝄫 for double flat, and 𝄪 for double sharp.\n- Do not invent a greeting, subject, sign-off, claim, or commitment.\n- Return only the finished text.";
 
     vec![
         LLMPrompt {
@@ -751,7 +752,7 @@ fn default_post_process_prompts() -> Vec<LLMPrompt> {
             id: "nsm_music".to_string(),
             name: "Music and notation".to_string(),
             prompt: format!(
-                "Format the transcript as precise musician-facing writing. Preserve chord symbols, pitch names, octave numbers, bar numbers, rehearsal marks, tempo markings, Roman numerals, Nashville numbers, solfege, swaras, and plugin or DAW names. Never change the musical meaning.${{output}}{shared_rules}"
+                "Format the transcript as precise musician-facing writing. Use compact conventional chord symbols when the speaker dictates chords, including extensions, alterations, suspensions, diminished and half-diminished qualities, and slash bass notes. Preserve pitch names, octave numbers, time signatures, note/rest values, bar numbers, rehearsal marks, tempo markings, Roman numerals, Nashville numbers, solfege, swaras, and plugin or DAW names. Never respell an enharmonic or change the musical meaning.${{output}}{shared_rules}"
             ),
         },
         LLMPrompt {
@@ -779,7 +780,7 @@ fn default_post_process_prompts() -> Vec<LLMPrompt> {
 }
 
 fn default_custom_words() -> Vec<String> {
-    [
+    let mut words = [
         "Jason Zac",
         "Nathaniel",
         "Nathaniel School of Music",
@@ -850,7 +851,19 @@ fn default_custom_words() -> Vec<String> {
     ]
     .into_iter()
     .map(str::to_string)
-    .collect()
+    .collect::<Vec<_>>();
+
+    words.extend(
+        INDIA_CORE_LEXICON
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .map(str::to_string),
+    );
+
+    let mut seen = HashSet::new();
+    words.retain(|word| seen.insert(word.to_lowercase()));
+    words
 }
 
 fn default_transcribe_gpu_device() -> i32 {
@@ -1204,6 +1217,23 @@ fn apply_settings_migrations(
             settings.transcribe_accelerator = TranscribeAcceleratorSetting::Auto;
             settings.transcribe_gpu_device = default_transcribe_gpu_device();
         }
+        updated = true;
+    }
+
+    if stored_schema_version < 2 {
+        let existing = settings
+            .custom_words
+            .iter()
+            .map(|word| word.to_lowercase())
+            .collect::<HashSet<_>>();
+        settings.custom_words.extend(
+            default_custom_words()
+                .into_iter()
+                .filter(|word| !existing.contains(&word.to_lowercase())),
+        );
+        updated = true;
+    }
+    if stored_schema_version < u64::from(CURRENT_SETTINGS_SCHEMA_VERSION) {
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
         updated = true;
     }
@@ -1300,6 +1330,32 @@ mod tests {
     }
 
     #[test]
+    fn india_lexicon_covers_every_required_category_without_duplicates() {
+        let words = default_custom_words();
+        for required in [
+            "Thiruvananthapuram",
+            "Kanjeevaram saree",
+            "bisi bele bath",
+            "Guruvayurappan",
+            "Brihadeeswarar Temple",
+            "Kendriya Vidyalaya",
+            "Indian Institute of Science",
+            "Kavyashree",
+        ] {
+            assert!(
+                words.iter().any(|word| word == required),
+                "missing India lexicon spelling: {required}"
+            );
+        }
+
+        let unique = words
+            .iter()
+            .map(|word| word.to_lowercase())
+            .collect::<HashSet<_>>();
+        assert_eq!(unique.len(), words.len());
+    }
+
+    #[test]
     fn existing_settings_gain_the_music_prompt_without_losing_custom_prompts() {
         let mut settings = get_default_settings();
         settings
@@ -1324,7 +1380,7 @@ mod tests {
 
     /// Frozen snapshot of a real v0.9.0-era settings store, as written to
     /// disk. This pins backwards compatibility: it must always parse strictly
-    /// (no salvage) and require no migration rewrite.
+    /// (no salvage), gain the India lexicon once, and then converge.
     ///
     /// If a schema change breaks this test, do NOT just update the fixture —
     /// it stands in for the stores on users' machines. Add a
@@ -1332,7 +1388,7 @@ mod tests {
     /// `apply_settings_migrations` so old values keep loading, and only extend
     /// the fixture alongside that.
     #[test]
-    fn frozen_v0_9_store_parses_strictly_without_migration() {
+    fn frozen_v0_9_store_parses_strictly_and_migrates_once() {
         // Note "log_level": 2 — the legacy numeric format, kept deliberately.
         let stored: serde_json::Value = serde_json::from_str(
             r##"{
@@ -1436,8 +1492,20 @@ mod tests {
         assert_eq!(settings.log_level, LogLevel::Debug);
         assert_eq!(settings.sound_theme, SoundTheme::Pop);
 
-        // A current-format store must not be rewritten on every read.
-        assert!(!apply_settings_migrations(&mut settings, &stored));
+        assert!(apply_settings_migrations(&mut settings, &stored));
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+        assert!(settings
+            .custom_words
+            .iter()
+            .any(|word| word == "Thiruvananthapuram"));
+        assert!(settings.custom_words.iter().any(|word| word == "Handy"));
+
+        // A migrated current-format store must not be rewritten on every read.
+        let migrated = serde_json::to_value(&settings).expect("migrated settings serialize");
+        assert!(!apply_settings_migrations(&mut settings, &migrated));
     }
 
     #[test]

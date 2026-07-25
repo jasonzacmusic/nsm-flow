@@ -422,6 +422,22 @@
         text-align: center;
       }
 
+      .download-link {
+        display: block;
+        margin-top: 12px;
+        padding: 11px 14px;
+        border-radius: 12px;
+        background: var(--navy);
+        color: white;
+        font-weight: 800;
+        text-align: center;
+        text-decoration: none;
+      }
+
+      .download-link:hover {
+        background: var(--blue);
+      }
+
       footer {
         margin: 70px 0 26px;
         padding: 28px 0;
@@ -490,7 +506,7 @@
           crashes, lag, and app-specific failures.
         </p>
         <div class="hero-meta">
-          <span class="pill">Target build: 0.2.0 alpha</span>
+          <span class="pill">Target build: 0.3.0-alpha.1</span>
           <span class="pill">Mac + Windows</span>
           <span class="pill">One bug per report</span>
           <span class="pill">Use dummy data only</span>
@@ -502,7 +518,7 @@
         <a href="#install">02 · Install</a>
         <a href="#matrix">03 · Test matrix</a>
         <a href="#music">04 · Musical typing</a>
-        <a href="#language">05 · Names & speech</a>
+        <a href="#language">05 · India accuracy</a>
         <a href="#apps">06 · Apps & email</a>
         <a href="#stress">07 · Stress & privacy</a>
         <a href="#report">08 · Report bugs</a>
@@ -555,8 +571,66 @@
         <h2>Start from a clean, known setup.</h2>
         <p class="lead">
           Record your tester ID, machine details, and exact app version before
-          testing. Use only the installer supplied by the NSM Flow coordinator.
+          testing. Download only from the Nathaniel Labs links below. The
+          complete ZIP contains this guide, every current installer, checksums,
+          release notes, and the audit brief.
         </p>
+        <div class="grid three" style="margin-bottom: 16px">
+          <article class="card">
+            <h3>Mac · Apple silicon</h3>
+            <p>M1, M2, M3, M4 and later Apple chips.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-mac-Apple-Silicon.dmg"
+              >Download DMG</a
+            >
+          </article>
+          <article class="card">
+            <h3>Mac · Intel</h3>
+            <p>Intel-based Macs. Do not use this build on Apple silicon.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-mac-Intel.dmg"
+              >Download DMG</a
+            >
+          </article>
+          <article class="card">
+            <h3>Windows · Recommended</h3>
+            <p>Windows 10 or 11, x64. Use the Setup EXE first.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-windows-x64-setup.exe"
+              >Download Setup EXE</a
+            >
+          </article>
+          <article class="card">
+            <h3>Windows · MSI</h3>
+            <p>Alternative installer for managed Windows computers.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-windows-x64.msi"
+              >Download MSI</a
+            >
+          </article>
+          <article class="card">
+            <h3>Complete QA bundle</h3>
+            <p>All installers, this guide, checksums and audit documents.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-0.3.0-alpha.1-complete.zip"
+              >Download ZIP</a
+            >
+          </article>
+          <article class="card">
+            <h3>Checksums</h3>
+            <p>Verify the downloaded files before testing or redistributing.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-0.3.0-alpha.1-SHA256SUMS.txt"
+              >Download SHA-256 file</a
+            >
+          </article>
+        </div>
         <div class="grid">
           <article class="card">
             <h3>Mac</h3>
@@ -691,7 +765,8 @@
         </p>
         <div class="music-strip" aria-label="Supported musical symbols">
           <span>B♭</span><span>F♯</span><span>C♮</span><span>B𝄫</span
-          ><span>C𝄪</span>
+          ><span>C𝄪</span><span>B♭maj7</span><span>G7♭9</span><span>Dø7</span
+          ><span>A/C♯</span><span>6/8</span><span>♩ = 120</span>
         </div>
         <div class="table-wrap" style="margin-top: 20px">
           <table>
@@ -707,13 +782,13 @@
               <tr>
                 <td><span class="code">M01</span></td>
                 <td>B flat major</td>
-                <td class="expected">B♭ major</td>
+                <td class="expected">B♭</td>
                 <td>Bb, B flat, B#</td>
               </tr>
               <tr>
                 <td><span class="code">M02</span></td>
                 <td>E flat minor and F sharp major</td>
-                <td class="expected">E♭ minor and F♯ major</td>
+                <td class="expected">E♭m and F♯</td>
                 <td>Missing or swapped symbols</td>
               </tr>
               <tr>
@@ -754,10 +829,95 @@
                   In bar 12 play B flat major seven, E flat minor seven, then F
                   sharp
                 </td>
-                <td class="expected">
-                  In bar 12 play B♭ major seven, E♭ minor seven, then F♯
-                </td>
+                <td class="expected">In bar 12 play B♭maj7, E♭m7, then F♯</td>
                 <td>Words or bar number altered</td>
+              </tr>
+              <tr>
+                <td><span class="code">M09</span></td>
+                <td>
+                  G dominant seven flat nine and C major seven sharp eleven
+                </td>
+                <td class="expected">G7♭9 and Cmaj7♯11</td>
+                <td>Alteration or extension omitted</td>
+              </tr>
+              <tr>
+                <td><span class="code">M10</span></td>
+                <td>C sharp diminished seven and D half diminished seven</td>
+                <td class="expected">C♯°7 and Dø7</td>
+                <td>° and ø confused</td>
+              </tr>
+              <tr>
+                <td><span class="code">M11</span></td>
+                <td>C major over E and D minor over F sharp</td>
+                <td class="expected">C/E and Dm/F♯</td>
+                <td>Bass note lost or attached incorrectly</td>
+              </tr>
+              <tr>
+                <td><span class="code">M12</span></td>
+                <td>D suspended four, G add nine, and A power five</td>
+                <td class="expected">Dsus4, Gadd9, and A5</td>
+                <td>Chord quality expanded or misheard</td>
+              </tr>
+              <tr>
+                <td><span class="code">M13</span></td>
+                <td>Start in six eight time, then change to seven four time</td>
+                <td class="expected">
+                  Start in 6/8 time, then change to 7/4 time
+                </td>
+                <td>Numbers joined or reversed</td>
+              </tr>
+              <tr>
+                <td><span class="code">M14</span></td>
+                <td>Dotted quarter note equals 96 and 120 beats per minute</td>
+                <td class="expected">♩. = 96 and 120 BPM</td>
+                <td>Tempo meaning changed</td>
+              </tr>
+              <tr>
+                <td><span class="code">M15</span></td>
+                <td>
+                  Quarter note symbol, eighth note symbol, and quarter rest
+                  symbol
+                </td>
+                <td class="expected">𝅘𝅥, 𝅘𝅥𝅮, and 𝄽</td>
+                <td>Font box, wrong value, or words left behind</td>
+              </tr>
+              <tr>
+                <td><span class="code">M16</span></td>
+                <td>A major problem caused a minor delay</td>
+                <td class="expected">A major problem caused a minor delay</td>
+                <td>Ordinary English converted into chords</td>
+              </tr>
+              <tr>
+                <td><span class="code">M17</span></td>
+                <td>Roman numeral two five one in C major</td>
+                <td class="expected">
+                  Musical meaning must remain exact; report the literal result
+                </td>
+                <td>Major/minor function invented</td>
+              </tr>
+              <tr>
+                <td><span class="code">M18</span></td>
+                <td>Nashville numbers one six four five</td>
+                <td class="expected">
+                  Sequence and number system must remain exact
+                </td>
+                <td>Numbers reordered or converted incorrectly</td>
+              </tr>
+              <tr>
+                <td><span class="code">M19</span></td>
+                <td>Sa Ri Ga Ma Pa Da Ni and Melakarta</td>
+                <td class="expected">
+                  Every swara and the spelling Melakarta remain exact
+                </td>
+                <td>Indian terms anglicised or replaced</td>
+              </tr>
+              <tr>
+                <td><span class="code">M20</span></td>
+                <td>Open REAPER, MuseScore, Logic Pro, and Pro Tools</td>
+                <td class="expected">
+                  REAPER, MuseScore, Logic Pro, and Pro Tools
+                </td>
+                <td>Brand casing or spacing changed</td>
               </tr>
             </tbody>
           </table>
@@ -772,12 +932,16 @@
       </section>
 
       <section id="language">
-        <div class="section-kicker">05 · Indian names and speech</div>
-        <h2>Names must survive real Indian English.</h2>
+        <div class="section-kicker">
+          05 · Indian English and exact spellings
+        </div>
+        <h2>India-specific words must survive exactly.</h2>
         <p class="lead">
-          Test each line slowly, normally, and quickly. Repeat with at least two
-          different speakers where possible. Never accept a close-looking but
-          wrong spelling.
+          NSM Flow ships a reviewed India lexicon for cities, clothing, food,
+          deities and sacred names, temples, educational institutions, and
+          personal names. Test each line slowly, normally, and quickly. Repeat
+          with at least two different speakers where possible. Never accept a
+          close-looking but wrong spelling.
         </p>
         <div class="grid">
           <article class="card">
@@ -796,13 +960,43 @@
             </ul>
           </article>
           <article class="card">
+            <h3>Exact India category script</h3>
+            <ul class="checklist">
+              <li>
+                <span class="code">I01</span> Bengaluru, Thiruvananthapuram,
+                Bhubaneswar, Guwahati, and Puducherry
+              </li>
+              <li>
+                <span class="code">I02</span> Kanjeevaram saree, mekhela chador,
+                phiran, Bandhani, and Chikankari
+              </li>
+              <li>
+                <span class="code">I03</span> bisi bele bath, pootharekulu,
+                chhena poda, masor tenga, and bebinca
+              </li>
+              <li>
+                <span class="code">I04</span> Guruvayurappan, Chamundeshwari,
+                Venkateswara, Guru Nanak, and Gautama Buddha
+              </li>
+              <li>
+                <span class="code">I05</span> Brihadeeswarar Temple,
+                Padmanabhaswamy Temple, Golden Temple, and Ajmer Sharif Dargah
+              </li>
+              <li>
+                <span class="code">I06</span> Kendriya Vidyalaya, Indian
+                Institute of Science, Visva-Bharati University, and Jamia Millia
+                Islamia
+              </li>
+            </ul>
+          </article>
+          <article class="card">
             <h3>Speech variation</h3>
             <ul class="checklist">
               <li>Quiet room, normal pace</li>
               <li>Very slow and very fast speech</li>
               <li>Soft voice and loud voice without clipping</li>
-              <li>South Indian and other Indian accents</li>
-              <li>Indian name inside a full English sentence</li>
+              <li>South, North, East, West, and Northeast Indian accents</li>
+              <li>India-specific word inside a full English sentence</li>
               <li>Two similar names in the same sentence</li>
               <li>Room fan or AC running</li>
               <li>Built-in and headset microphones</li>
@@ -811,9 +1005,10 @@
         </div>
         <div class="callout warning" style="margin-top: 18px">
           <strong>Measure, do not guess.</strong>
-          For each scripted name, record correct attempts out of 10. Example:
-          “Chandana: 8/10 built-in mic, 10/10 headset.” A spelling target has
-          not passed merely because it worked once.
+          For each scripted name or phrase, record correct attempts out of 10.
+          Example: “Chandana: 8/10 built-in mic, 10/10 headset.” Every
+          multi-word institution and temple must preserve its exact word order.
+          A spelling target has not passed merely because it worked once.
         </div>
       </section>
 
@@ -944,8 +1139,11 @@
               <li>Check audio retention remains Delete immediately</li>
               <li>Inspect history; deleted items stay deleted</li>
               <li>Ensure transcript text never appears in normal logs</li>
-              <li>Google sign-in never exposes a token or secret</li>
-              <li>Cancel sign-in; app must recover cleanly</li>
+              <li>Confirm local dictation works without any employee login</li>
+              <li>
+                If optional Google sign-in is visible, cancelling it must
+                recover cleanly and never expose a token
+              </li>
             </ul>
           </article>
           <article class="card">
@@ -1070,8 +1268,8 @@ What temporarily avoids the problem, if anything.</pre
       </section>
 
       <footer>
-        Prepared for Nathaniel School of Music · NSM Flow 0.2.0 alpha · Internal
-        testing only · Product owner: Jason Zac
+        Prepared for Nathaniel School of Music · NSM Flow 0.3.0-alpha.1 · Free
+        Nathaniel Labs public alpha · Product owner: Jason Zac
       </footer>
     </main>
   </body>

@@ -27,6 +27,8 @@ struct CustomWordMatchKey {
     key: String,
 }
 
+const MAX_CUSTOM_WORD_NGRAM: usize = 6;
+
 fn build_custom_word_match_keys(word: &str, word_index: usize) -> Vec<CustomWordMatchKey> {
     let primary_key = build_match_key(word);
     let mut keys = Vec::with_capacity(2);
@@ -82,19 +84,96 @@ fn is_spoken_accidental_in_note_context(words: &[&str], index: usize) -> bool {
 
     match current.as_str() {
         "flat" | "sharp" | "natural" => {
-            previous.as_deref().is_some_and(|word| is_note_letter(word))
+            previous.as_deref().is_some_and(is_note_letter)
                 || (previous.as_deref() == Some("double")
-                    && previous_two
-                        .as_deref()
-                        .is_some_and(|word| is_note_letter(word)))
+                    && previous_two.as_deref().is_some_and(is_note_letter))
                 || next.as_deref() == Some("sign")
         }
         "double" => {
-            previous.as_deref().is_some_and(|word| is_note_letter(word))
+            previous.as_deref().is_some_and(is_note_letter)
                 && matches!(next.as_deref(), Some("flat" | "sharp"))
         }
         _ => false,
     }
+}
+
+fn is_spoken_music_command(words: &[&str], index: usize) -> bool {
+    let start = index.saturating_sub(4);
+    let end = (index + 5).min(words.len());
+    let window = words[start..end]
+        .iter()
+        .map(|word| build_match_key(word))
+        .collect::<Vec<_>>();
+    let current = build_match_key(words[index]);
+
+    let has_note = window.iter().any(|word| is_note_letter(word));
+    let has_music_marker = window.iter().any(|word| {
+        matches!(
+            word.as_str(),
+            "flat"
+                | "sharp"
+                | "natural"
+                | "double"
+                | "major"
+                | "minor"
+                | "dominant"
+                | "diminished"
+                | "augmented"
+                | "suspended"
+                | "sus"
+                | "add"
+                | "power"
+                | "chord"
+                | "over"
+                | "slash"
+        )
+    });
+    let is_music_token = is_note_letter(&current)
+        || matches!(
+            current.as_str(),
+            "flat"
+                | "sharp"
+                | "natural"
+                | "double"
+                | "major"
+                | "minor"
+                | "dominant"
+                | "diminished"
+                | "augmented"
+                | "half"
+                | "suspended"
+                | "sus"
+                | "add"
+                | "power"
+                | "chord"
+                | "over"
+                | "slash"
+                | "one"
+                | "two"
+                | "three"
+                | "four"
+                | "five"
+                | "six"
+                | "seven"
+                | "eight"
+                | "nine"
+                | "eleven"
+                | "thirteen"
+                | "1"
+                | "2"
+                | "3"
+                | "4"
+                | "5"
+                | "6"
+                | "7"
+                | "8"
+                | "9"
+                | "11"
+                | "13"
+        );
+
+    (has_note && has_music_marker && is_music_token)
+        || is_spoken_accidental_in_note_context(words, index)
 }
 
 /// Finds the best matching custom word for a candidate string
@@ -146,6 +225,17 @@ fn find_best_match<'a>(
 
         // Soundex is an English/ASCII phonetic algorithm. Numeric terms can
         // still use edit distance, but must not receive a phonetic boost.
+        // A large India-focused vocabulary creates more Soundex collisions.
+        // For the normal conservative threshold, do not let the phonetic boost
+        // rescue a visibly distant spelling (for example "does" -> "dosa").
+        // Higher user-selected thresholds keep the original permissive mode.
+        if threshold < 0.5 {
+            let conservative_limit = if max_len <= 5.0 { 0.20 } else { 0.30 };
+            if levenshtein_score > conservative_limit {
+                continue;
+            }
+        }
+
         let phonetic_match = supports_soundex(candidate)
             && supports_soundex(&custom_word_key.key)
             && soundex(candidate, &custom_word_key.key);
@@ -203,7 +293,7 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
         // Without this guard, Soundex can turn "F sharp" into "F Sharifa"
         // when the employee vocabulary contains the Indian name "Sharifa".
         // Preserve the command so the app-aware formatter can emit F♯ later.
-        if is_spoken_accidental_in_note_context(&words, i) {
+        if is_spoken_music_command(&words, i) {
             result.push(words[i].to_string());
             i += 1;
             continue;
@@ -211,11 +301,12 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
 
         let mut best_match: Option<(usize, &String, f64)> = None;
 
-        // Consider n-grams up to three words and choose the closest match. A
+        // Consider n-grams up to six words so Indian institutions and temple
+        // names can be corrected as one phrase. A
         // longest-first match can consume a following ordinary word when both
         // candidates happen to share a Soundex code (for example,
         // "Charge B, che" matching "ChargeBee").
-        for n in (1..=3).rev() {
+        for n in (1..=MAX_CUSTOM_WORD_NGRAM).rev() {
             if i + n > words.len() {
                 continue;
             }
@@ -470,6 +561,42 @@ mod tests {
         let result = apply_custom_words(text, &custom_words, 0.18);
 
         assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_apply_custom_words_preserves_chord_commands() {
+        let custom_words = vec![
+            "Manish".to_string(),
+            "Nimisha".to_string(),
+            "Sharifa".to_string(),
+            "Srilatha".to_string(),
+        ];
+        let text = "Play B flat major seven, E flat minor seven, G dominant seven flat nine, D half diminished seven, and A augmented over C sharp.";
+        let result = apply_custom_words(text, &custom_words, 0.18);
+
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_large_lexicon_does_not_turn_ordinary_words_into_food() {
+        let custom_words = vec![
+            "dosa".to_string(),
+            "idli".to_string(),
+            "kurta".to_string(),
+            "Kota".to_string(),
+        ];
+        let text = "She does the work in total and keeps the idea clear.";
+        let result = apply_custom_words(text, &custom_words, 0.18);
+
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_long_indian_institution_phrase_can_be_corrected() {
+        let custom_words = vec!["Indian Institute of Science".to_string()];
+        let result = apply_custom_words("Indian Institute of Sciences", &custom_words, 0.18);
+
+        assert_eq!(result, "Indian Institute of Science");
     }
 
     #[test]

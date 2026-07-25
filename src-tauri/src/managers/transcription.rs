@@ -1078,7 +1078,7 @@ impl TranscriptionManager {
         let settings = get_settings(&self.app_handle);
         // Streaming models do not receive a decode prompt, so custom words
         // always go through the shared fuzzy post-correction path.
-        let filtered = post_process_transcription_text(raw, &settings, false);
+        let filtered = post_process_transcription_text(raw, &settings);
 
         self.maybe_unload_immediately("streaming transcription");
         Ok(Some(filtered))
@@ -1234,7 +1234,7 @@ impl TranscriptionManager {
                             None
                         } else {
                             Some(RunExtension::Whisper(WhisperRunOptions {
-                                initial_prompt: Some(settings.custom_words.join(", ")),
+                                initial_prompt: custom_words_initial_prompt(&settings.custom_words),
                                 ..Default::default()
                             }))
                         };
@@ -1387,12 +1387,11 @@ impl TranscriptionManager {
             }
         };
 
-        // Apply fuzzy word correction if custom words are configured — UNLESS the
-        // words were already handed to the model as an initial prompt (whisper
-        // family). We don't pass a prompt to non-whisper models (it requires the
-        // whisper-kind run extension), so they still get fuzzy correction here,
-        // same as the ONNX engines.
-        let filtered_result = post_process_transcription_text(result, &settings, model_is_whisper);
+        // Apply conservative custom-word correction after every engine. Whisper
+        // receives only a bounded decoder prompt; the complete India lexicon is
+        // intentionally handled here so a large vocabulary cannot overflow or
+        // degrade the model prompt.
+        let filtered_result = post_process_transcription_text(result, &settings);
 
         let et = std::time::Instant::now();
         let translation_note = if settings.translate_to_english {
@@ -1602,13 +1601,28 @@ fn transcribe_cpp_run_plan(
     }
 }
 
-fn post_process_transcription_text(
-    raw: String,
-    settings: &AppSettings,
-    custom_words_already_prompted: bool,
-) -> String {
+const MAX_CUSTOM_WORD_PROMPT_CHARS: usize = 1_200;
+
+fn custom_words_initial_prompt(custom_words: &[String]) -> Option<String> {
+    let mut prompt = String::new();
+    for word in custom_words {
+        let separator_len = usize::from(!prompt.is_empty()) * 2;
+        if prompt.chars().count() + separator_len + word.chars().count()
+            > MAX_CUSTOM_WORD_PROMPT_CHARS
+        {
+            break;
+        }
+        if !prompt.is_empty() {
+            prompt.push_str(", ");
+        }
+        prompt.push_str(word);
+    }
+    (!prompt.is_empty()).then_some(prompt)
+}
+
+fn post_process_transcription_text(raw: String, settings: &AppSettings) -> String {
     fail_open_text_transform(raw, |raw| {
-        let corrected = if !settings.custom_words.is_empty() && !custom_words_already_prompted {
+        let corrected = if !settings.custom_words.is_empty() {
             apply_custom_words(
                 &raw,
                 &settings.custom_words,
@@ -2018,6 +2032,17 @@ mod tests {
         });
 
         assert_eq!(result, raw);
+    }
+
+    #[test]
+    fn custom_word_prompt_is_bounded_but_keeps_priority_terms() {
+        let mut words = vec!["Jason Zac".to_string(), "Inchara".to_string()];
+        words.extend((0..500).map(|index| format!("IndiaLexiconTerm{index}")));
+
+        let prompt = custom_words_initial_prompt(&words).expect("prompt should exist");
+        assert!(prompt.starts_with("Jason Zac, Inchara"));
+        assert!(prompt.chars().count() <= MAX_CUSTOM_WORD_PROMPT_CHARS);
+        assert!(!prompt.contains("IndiaLexiconTerm499"));
     }
 
     #[test]

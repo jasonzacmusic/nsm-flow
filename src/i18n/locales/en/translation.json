@@ -10,6 +10,7 @@
   },
   "sidebar": {
     "general": "General",
+    "team": "Team",
     "models": "Models",
     "advanced": "Advanced",
     "postProcessing": "Post Process",
@@ -100,7 +101,7 @@
     },
     "permissions": {
       "title": "Permissions Required",
-      "description": "Handy needs a couple of permissions to work properly.",
+      "description": "NSM Flow needs microphone and accessibility permissions to work across your apps.",
       "microphone": {
         "title": "Microphone Access",
         "description": "Required to hear your voice for transcription."
@@ -160,7 +161,7 @@
     "general": {
       "title": "General",
       "shortcut": {
-        "title": "Handy Shortcuts",
+        "title": "NSM Flow Shortcuts",
         "description": "Configure keyboard shortcuts to trigger speech-to-text recording",
         "loading": "Loading shortcuts...",
         "none": "No shortcuts configured",
@@ -212,7 +213,7 @@
       },
       "rescan": {
         "label": "Rescan",
-        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside Handy"
+        "tooltip": "Rescan for models added to the models folder or Hugging Face cache outside NSM Flow"
       },
       "noModelsMatch": "No models match this filter."
     },
@@ -274,11 +275,11 @@
       },
       "autostart": {
         "label": "Launch on Startup",
-        "description": "Automatically start Handy when you log in to your computer."
+        "description": "Automatically start NSM Flow when you log in to your computer."
       },
       "showTrayIcon": {
         "label": "Show Tray Icon",
-        "description": "Display the Handy icon in the system tray."
+        "description": "Display the NSM Flow icon in the system tray."
       },
       "overlay": {
         "style": {
@@ -461,7 +462,7 @@
       },
       "updateChecks": {
         "label": "Check for Updates",
-        "description": "Automatically check for new versions of Handy"
+        "description": "Automatically check for new versions of NSM Flow"
       },
       "whatsNewPreview": {
         "title": "Preview What's New",
@@ -486,6 +487,7 @@
       "recordingRetention": {
         "title": "Auto-Delete Recordings",
         "description": "Automatically delete old recordings to save space",
+        "deleteImmediately": "Do not save audio (recommended)",
         "never": "Never",
         "preserveLimit": "Keep latest {{count}}",
         "days3": "After 3 days",
@@ -540,15 +542,15 @@
       "title": "About",
       "version": {
         "title": "Version",
-        "description": "Current version of Handy"
+        "description": "Current version of NSM Flow"
       },
       "whatsNewUpdates": {
         "label": "Show What's New",
-        "description": "Show release notes after Handy updates"
+        "description": "Show release notes after NSM Flow updates"
       },
       "appDataDirectory": {
         "title": "App Data Directory",
-        "description": "Location where Handy stores its data"
+        "description": "Location where NSM Flow stores its local data"
       },
       "sourceCode": {
         "title": "Source Code",
@@ -556,16 +558,36 @@
         "button": "View on GitHub"
       },
       "supportDevelopment": {
-        "title": "Support Development",
-        "description": "Help us continue building Handy",
-        "button": "Donate"
+        "title": "Built for Nathaniel",
+        "description": "Private, local-first dictation for the Nathaniel team",
+        "button": "NSM Website"
       },
       "acknowledgments": {
         "title": "Acknowledgments",
         "ggml": {
           "title": "ggml",
           "description": "High-performance tensor library for on-device machine learning inference",
-          "details": "Handy's local speech-to-text is built on transcribe.cpp and ggml. Thanks to the amazing work by Georgi Gerganov and contributors."
+          "details": "NSM Flow's local speech-to-text is built on transcribe.cpp and ggml. Thanks to Georgi Gerganov and contributors, and to the open-source Handy project that provided the original application foundation."
+        }
+      }
+    },
+    "team": {
+      "title": "Nathaniel Team",
+      "description": "Identify this installation with a verified Google account.",
+      "account": {
+        "title": "Team account",
+        "description": "Google verifies your identity. NSM Flow stores only your name and email on this computer.",
+        "signIn": "Sign in with Google",
+        "signOut": "Sign out",
+        "working": "Waiting for Google...",
+        "notConfigured": "Google sign-in is ready in the app but needs Nathaniel's desktop OAuth client ID before it can be used."
+      },
+      "privacy": {
+        "title": "Privacy",
+        "local": {
+          "title": "Local-first dictation",
+          "description": "Speech recognition, vocabulary correction, history, and app-aware formatting stay on this computer by default.",
+          "status": "No transcript or recording is sent to Nathaniel."
         }
       }
     }
@@ -584,7 +606,7 @@
     "portableUpdateButton": "Open GitHub Releases"
   },
   "whatsNew": {
-    "title": "New in Handy v{{version}}"
+    "title": "New in NSM Flow v{{version}}"
   },
   "common": {
     "loading": "Loading...",
@@ -596,7 +618,7 @@
     "noOptionsFound": "No options found"
   },
   "accessibility": {
-    "permissionsDescription": "Handy needs accessibility permissions to type transcribed text.",
+    "permissionsDescription": "NSM Flow needs accessibility permissions to type transcribed text.",
     "openSettings": "Open System Settings"
   },
   "errors": {
@@ -619,11 +641,11 @@
   },
   "appLanguage": {
     "title": "Application Language",
-    "description": "Change the language of the Handy interface"
+    "description": "Change the language of the NSM Flow interface"
   },
   "theme": {
     "title": "Application Theme",
-    "description": "Choose whether Handy follows your system theme or stays light or dark",
+    "description": "Choose whether NSM Flow follows your system theme or stays light or dark",
     "options": {
       "system": "System",
       "light": "Light",

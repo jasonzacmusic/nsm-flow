@@ -134,6 +134,7 @@ pub async fn update_recording_retention_period(
     use crate::settings::RecordingRetentionPeriod;
 
     let retention_period = match period.as_str() {
+        "delete_immediately" => RecordingRetentionPeriod::DeleteImmediately,
         "never" => RecordingRetentionPeriod::Never,
         "preserve_limit" => RecordingRetentionPeriod::PreserveLimit,
         "days3" => RecordingRetentionPeriod::Days3,

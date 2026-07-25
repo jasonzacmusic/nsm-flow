@@ -1,11 +1,11 @@
 [package]
-name = "handy"
-version = "0.9.4"
-description = "Handy"
-authors = ["cjpais"]
+name = "nsm-flow"
+version = "0.1.0"
+description = "Private, local-first voice dictation for Nathaniel School of Music"
+authors = ["Jason Zac", "Nathaniel School of Music"]
 edition = "2021"
 license = "MIT"
-default-run = "handy"
+default-run = "nsm-flow"
 
 [profile.dev]
 incremental = true # Compile your binary in smaller steps.
@@ -16,7 +16,7 @@ incremental = true # Compile your binary in smaller steps.
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "handy_app_lib"
+name = "nsm_flow_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 # [[bin]]
@@ -69,12 +69,16 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 tar = "0.4.44"
 flate2 = "1.0"
 sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+url = "2"
 # Whisper-family models run through transcribe-cpp (GGUF/ggml, native backends);
 # transcribe-rs is now ONNX-only (Parakeet, Moonshine, SenseVoice, GigaAM,
 # Canary, Cohere). Per-platform backend features are added in the target tables.
 transcribe-rs = { version = "0.3.8", features = ["onnx"] }
 transcribe-cpp = { version = "0.1.3", default-features = false }
 handy-keys = "0.3.2"
+active-win-pos-rs = "0.11"
 ferrous-opencc = "0.2.3"
 clap = { version = "4", features = ["derive"] }
 specta = "=2.0.0-rc.22"

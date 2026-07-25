@@ -27,6 +27,10 @@ export const RecordingRetentionPeriodSelector: React.FC<RecordingRetentionPeriod
     };
 
     const retentionOptions = [
+      {
+        value: "delete_immediately",
+        label: t("settings.debug.recordingRetention.deleteImmediately"),
+      },
       { value: "never", label: t("settings.debug.recordingRetention.never") },
       {
         value: "preserve_limit",

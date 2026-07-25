@@ -387,21 +387,23 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
               fill={entry.saved ? "currentColor" : "none"}
             />
           </IconButton>
-          <IconButton
-            onClick={handleRetranscribe}
-            disabled={retrying}
-            title={t("settings.history.retranscribe")}
-          >
-            <RotateCcw
-              width={16}
-              height={16}
-              style={
-                retrying
-                  ? { animation: "spin 1s linear infinite reverse" }
-                  : undefined
-              }
-            />
-          </IconButton>
+          {entry.file_name && (
+            <IconButton
+              onClick={handleRetranscribe}
+              disabled={retrying}
+              title={t("settings.history.retranscribe")}
+            >
+              <RotateCcw
+                width={16}
+                height={16}
+                style={
+                  retrying
+                    ? { animation: "spin 1s linear infinite reverse" }
+                    : undefined
+                }
+              />
+            </IconButton>
+          )}
           <IconButton
             onClick={handleDeleteEntry}
             disabled={retrying}
@@ -441,7 +443,9 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
             : t("settings.history.transcriptionFailed")}
       </p>
 
-      <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+      {entry.file_name && (
+        <AudioPlayer onLoadRequest={handleLoadAudio} className="w-full" />
+      )}
     </div>
   );
 };

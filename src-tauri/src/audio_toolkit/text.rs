@@ -63,6 +63,40 @@ fn supports_soundex(key: &str) -> bool {
     !key.is_empty() && key.chars().all(|c| c.is_ascii_alphabetic())
 }
 
+fn is_note_letter(word: &str) -> bool {
+    matches!(
+        build_match_key(word).as_str(),
+        "a" | "b" | "c" | "d" | "e" | "f" | "g"
+    )
+}
+
+fn is_spoken_accidental_in_note_context(words: &[&str], index: usize) -> bool {
+    let current = build_match_key(words[index]);
+    let previous = index
+        .checked_sub(1)
+        .map(|previous_index| build_match_key(words[previous_index]));
+    let previous_two = index
+        .checked_sub(2)
+        .map(|previous_index| build_match_key(words[previous_index]));
+    let next = words.get(index + 1).map(|word| build_match_key(word));
+
+    match current.as_str() {
+        "flat" | "sharp" | "natural" => {
+            previous.as_deref().is_some_and(|word| is_note_letter(word))
+                || (previous.as_deref() == Some("double")
+                    && previous_two
+                        .as_deref()
+                        .is_some_and(|word| is_note_letter(word)))
+                || next.as_deref() == Some("sign")
+        }
+        "double" => {
+            previous.as_deref().is_some_and(|word| is_note_letter(word))
+                && matches!(next.as_deref(), Some("flat" | "sharp"))
+        }
+        _ => false,
+    }
+}
+
 /// Finds the best matching custom word for a candidate string
 ///
 /// Uses Levenshtein distance and Soundex phonetic matching to find
@@ -165,6 +199,16 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
     let mut i = 0;
 
     while i < words.len() {
+        // Musical accidentals are semantic commands, not near-miss names.
+        // Without this guard, Soundex can turn "F sharp" into "F Sharifa"
+        // when the employee vocabulary contains the Indian name "Sharifa".
+        // Preserve the command so the app-aware formatter can emit F♯ later.
+        if is_spoken_accidental_in_note_context(&words, i) {
+            result.push(words[i].to_string());
+            i += 1;
+            continue;
+        }
+
         let mut best_match: Option<(usize, &String, f64)> = None;
 
         // Consider n-grams up to three words and choose the closest match. A
@@ -408,6 +452,24 @@ mod tests {
         let custom_words = vec!["hello".to_string(), "world".to_string()];
         let result = apply_custom_words(text, &custom_words, 0.5);
         assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn test_apply_custom_words_preserves_musical_accidentals() {
+        let custom_words = vec!["Sharifa".to_string(), "Flavia".to_string()];
+        let text = "Play F sharp 4, B flat major, C natural, D double sharp, and E double flat.";
+        let result = apply_custom_words(text, &custom_words, 0.18);
+
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_apply_custom_words_preserves_explicit_accidental_sign_commands() {
+        let custom_words = vec!["Sharifa".to_string(), "Flavia".to_string()];
+        let text = "Use the sharp sign and flat sign.";
+        let result = apply_custom_words(text, &custom_words, 0.18);
+
+        assert_eq!(result, text);
     }
 
     #[test]

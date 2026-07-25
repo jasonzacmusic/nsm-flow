@@ -14,7 +14,12 @@ AI prompts, documents, and code.
 - fully local Whisper-family and Parakeet speech recognition
 - seeded NSM vocabulary including Inchara, Chitra, Chandana, Arnabi,
   Melakarta, Konnakol, Nathaniel School of Music, and NSM
-- app-aware writing modes with safe local formatting
+- app-aware writing modes for email, WhatsApp, AI prompts, documents, code,
+  and music software
+- local musical typing that converts spoken accidentals into real Unicode
+  notation: B♭, F♯, C♮, B𝄫, and C𝄪
+- stronger email formatting with safe paragraph, list, subject, greeting, and
+  sign-off rules
 - optional local LLM formatting through any OpenAI-compatible server
 - Google team identity with PKCE and a localhost callback
 - local text history with source-audio storage disabled by default
@@ -25,7 +30,7 @@ desktop app. Google sign-in stores only the verified name and email locally.
 
 ## Status
 
-Version `0.1.0` is an internal Nathaniel alpha. The desktop OAuth client ID,
+Version `0.2.0` is an internal Nathaniel alpha. The desktop OAuth client ID,
 Apple signing identity, and Windows signing certificate must be supplied by
 Nathaniel before trusted employee installers can be distributed. Unsigned CI
 artifacts are suitable for internal testing.

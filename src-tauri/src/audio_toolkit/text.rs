@@ -28,6 +28,19 @@ struct CustomWordMatchKey {
 }
 
 const MAX_CUSTOM_WORD_NGRAM: usize = 6;
+const INDIA_CORE_ALIASES: &str = include_str!("../../resources/lexicons/india-aliases.tsv");
+
+static INDIA_CORE_ALIAS_KEYS: Lazy<Vec<(String, &'static str)>> = Lazy::new(|| {
+    INDIA_CORE_ALIASES
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        .filter_map(|line| {
+            let (heard, preferred) = line.split_once('\t')?;
+            Some((build_match_key(heard), preferred.trim()))
+        })
+        .collect()
+});
 
 fn build_custom_word_match_keys(word: &str, word_index: usize) -> Vec<CustomWordMatchKey> {
     let primary_key = build_match_key(word);
@@ -283,6 +296,14 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
         .enumerate()
         .flat_map(|(index, word)| build_custom_word_match_keys(word, index))
         .collect();
+    let enabled_india_aliases = INDIA_CORE_ALIAS_KEYS
+        .iter()
+        .filter(|(_, preferred)| {
+            custom_words
+                .iter()
+                .any(|word| word.eq_ignore_ascii_case(preferred))
+        })
+        .collect::<Vec<_>>();
 
     let words: Vec<&str> = text.split_whitespace().collect();
     let mut result = Vec::new();
@@ -296,6 +317,42 @@ pub fn apply_custom_words(text: &str, custom_words: &[String], threshold: f64) -
         if is_spoken_music_command(&words, i) {
             result.push(words[i].to_string());
             i += 1;
+            continue;
+        }
+
+        let mut alias_match: Option<(usize, &str)> = None;
+        if !enabled_india_aliases.is_empty() {
+            for n in (1..=MAX_CUSTOM_WORD_NGRAM).rev() {
+                if i + n > words.len() {
+                    continue;
+                }
+
+                let ngram_words = &words[i..i + n];
+                if ngram_words[..n.saturating_sub(1)]
+                    .iter()
+                    .any(|word| !extract_punctuation(word).1.is_empty())
+                {
+                    continue;
+                }
+                let ngram = build_ngram(ngram_words);
+                if let Some((_, preferred)) = enabled_india_aliases
+                    .iter()
+                    .find(|(heard, _)| heard == &ngram)
+                {
+                    alias_match = Some((n, *preferred));
+                    break;
+                }
+            }
+        }
+
+        if let Some((n, preferred)) = alias_match {
+            let ngram_words = &words[i..i + n];
+            let (prefix, _) = extract_punctuation(ngram_words[0]);
+            let (_, suffix) = extract_punctuation(ngram_words[n - 1]);
+            let corrected = preserve_case_pattern(ngram_words[0], preferred);
+
+            result.push(format!("{prefix}{corrected}{suffix}"));
+            i += n;
             continue;
         }
 
@@ -597,6 +654,64 @@ mod tests {
         let result = apply_custom_words("Indian Institute of Sciences", &custom_words, 0.18);
 
         assert_eq!(result, "Indian Institute of Science");
+    }
+
+    #[test]
+    fn test_known_india_asr_phrase_uses_preferred_spelling() {
+        let custom_words = vec!["Kanjeevaram saree".to_string()];
+        let result = apply_custom_words(
+            "Please bring the Kanjivram Sari tomorrow.",
+            &custom_words,
+            0.18,
+        );
+
+        assert_eq!(result, "Please bring the Kanjeevaram saree tomorrow.");
+    }
+
+    #[test]
+    fn test_india_alias_requires_the_preferred_custom_word() {
+        let text = "Please bring the Kanjivram Sari tomorrow.";
+        let result = apply_custom_words(text, &["Inchara".to_string()], 0.18);
+
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_india_alias_gate_is_case_insensitive() {
+        let custom_words = vec!["kanjeevaram SAREE".to_string()];
+        let result = apply_custom_words(
+            "Please bring the Kanjivram Sari tomorrow.",
+            &custom_words,
+            0.18,
+        );
+
+        assert_eq!(result, "Please bring the Kanjeevaram saree tomorrow.");
+    }
+
+    #[test]
+    fn test_india_alias_does_not_rewrite_generic_word_alone() {
+        let custom_words = vec!["Kanjeevaram saree".to_string()];
+        let text = "She wore a beautiful sari to the wedding.";
+        let result = apply_custom_words(text, &custom_words, 0.18);
+
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_india_alias_does_not_cross_punctuation_boundary() {
+        let custom_words = vec!["Kanjeevaram saree".to_string()];
+        let text = "Kanjivram, Sari please.";
+        let result = apply_custom_words(text, &custom_words, 0.18);
+
+        assert_eq!(result, text);
+    }
+
+    #[test]
+    fn test_india_alias_preserves_trailing_punctuation() {
+        let custom_words = vec!["Kanjeevaram saree".to_string()];
+        let result = apply_custom_words("She loves her Kanjivram Sari!", &custom_words, 0.18);
+
+        assert_eq!(result, "She loves her Kanjeevaram saree!");
     }
 
     #[test]

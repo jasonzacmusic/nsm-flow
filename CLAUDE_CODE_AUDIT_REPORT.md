@@ -69,11 +69,11 @@ design choice (see the doc comment at `writing_mode.rs:72-74` and the test
 `chord_compaction_stays_safe_in_ordinary_prose`), but I probed it with cases
 outside the existing test suite to check for real prose corruption:
 
-| Input | Output |
-|---|---|
-| "Meet me at gate B 7 before boarding." | "Meet me at gate B7 before boarding." |
-| "Take vitamin B seven daily." | "Take vitamin B7 daily." |
-| "Room A 7 is down the hall." | "Room A7 is down the hall." |
+| Input                                   | Output                                 |
+| --------------------------------------- | -------------------------------------- |
+| "Meet me at gate B 7 before boarding."  | "Meet me at gate B7 before boarding."  |
+| "Take vitamin B seven daily."           | "Take vitamin B7 daily."               |
+| "Room A 7 is down the hall."            | "Room A7 is down the hall."            |
 | "She scored a B 9 on the physics quiz." | "She scored a B9 on the physics quiz." |
 
 None of these change the sentence's meaning — they compact `"B seven"` into
@@ -114,7 +114,7 @@ Worth a follow-up if/when Linux becomes a supported platform.
   **once**, after the engine `match` block, unconditionally for every engine
   variant (TranscribeCpp, Parakeet, Moonshine, MoonshineStreaming,
   SenseVoice, GigaAM, Canary, Cohere) and for the streaming path
-  (`finalize_stream`). Only TranscribeCpp additionally gets a *bounded*
+  (`finalize_stream`). Only TranscribeCpp additionally gets a _bounded_
   initial-decoder prompt (see Q4).
 - **Q4 (Soundex/edit-distance false corrections):** `text.rs`'s
   `find_best_match` disables the Soundex phonetic boost from rescuing a
@@ -175,7 +175,7 @@ Worth a follow-up if/when Linux becomes a supported platform.
   redacted in `Debug` output (tested). No Wispr Flow proprietary code —
   `scripts/import_wispr_dictionary.py` only reads a local SQLite DB in
   `mode=ro`, restricted to `Dictionary` rows with `source in
-  {manual, user_edits}`, and explicitly excludes emails, URLs, snippets, and
+{manual, user_edits}`, and explicitly excludes emails, URLs, snippets, and
   long numbers before ever touching NSM Flow. `LICENSE`/`NOTICE.md` correctly
   preserve the upstream Handy MIT copyright and clarify the Handy name/logo
   are not reused.
@@ -183,8 +183,8 @@ Worth a follow-up if/when Linux becomes a supported platform.
   install/setup (human, physical) from the per-app-mode test matrix (human,
   physical, with repetition counts) — it does not claim any of this was
   automated. No inflated claims were found in the guide text itself (the one
-  "100% working" mention is explicitly framed as *"a release target, not an
-  assumption"*). Its only defect is Finding 1 (dead download links), which is
+  "100% working" mention is explicitly framed as _"a release target, not an
+  assumption"_). Its only defect is Finding 1 (dead download links), which is
   a data problem, not a mischaracterization of what's automated vs. physical.
 - **Q12 (honest claims):** No "perfect"/"100%"/"5x better" claims found
   anywhere in README, the intern guide, or code comments in the reviewed
@@ -208,20 +208,20 @@ All run from `/Users/nphmacmini/Documents/New project/nsm-flow` with
 `PATH="$HOME/.rustup/toolchains/stable-aarch64-apple-darwin/bin:$PATH"`
 exported for the Rust steps.
 
-| Command | Result |
-|---|---|
-| `bun install --frozen-lockfile` | Pass — "Checked 372 installs across 445 packages (no changes)" |
-| `bun run format:check` (prettier + `cargo fmt -- --check`) | Pass |
-| `bun run lint` (ESLint) | Pass, no output/errors |
-| `bun run check:translations` | Pass — 23 languages, all 399 keys present |
-| `bun run build` (`tsc && vite build`) | Pass — built in 1.69s |
-| `bunx playwright test` | Pass — 2/2 tests |
-| `cd src-tauri && cargo test` | Pass — **152/152** unit tests, 0 failed |
-| `cd src-tauri && cargo clippy --all-targets -- -D warnings` | Pass — zero warnings |
-| `git diff --check` | Pass — no whitespace/conflict-marker issues |
-| `CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri build --target aarch64-apple-darwin` | Pass — built, ad-hoc signed, bundled `.app` and `.dmg` in 4m03s |
-| `"NSM Flow.app/Contents/MacOS/nsm-flow" --list-devices` | Pass — `metal` (Apple M4 Pro, 49152MB) and `cpu` devices listed, no crash |
-| `curl` against all 6 README/QA-guide download URLs | **All 404** — see Finding 1 |
+| Command                                                                              | Result                                                                    |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| `bun install --frozen-lockfile`                                                      | Pass — "Checked 372 installs across 445 packages (no changes)"            |
+| `bun run format:check` (prettier + `cargo fmt -- --check`)                           | Pass                                                                      |
+| `bun run lint` (ESLint)                                                              | Pass, no output/errors                                                    |
+| `bun run check:translations`                                                         | Pass — 23 languages, all 399 keys present                                 |
+| `bun run build` (`tsc && vite build`)                                                | Pass — built in 1.69s                                                     |
+| `bunx playwright test`                                                               | Pass — 2/2 tests                                                          |
+| `cd src-tauri && cargo test`                                                         | Pass — **152/152** unit tests, 0 failed                                   |
+| `cd src-tauri && cargo clippy --all-targets -- -D warnings`                          | Pass — zero warnings                                                      |
+| `git diff --check`                                                                   | Pass — no whitespace/conflict-marker issues                               |
+| `CMAKE_POLICY_VERSION_MINIMUM=3.5 bun run tauri build --target aarch64-apple-darwin` | Pass — built, ad-hoc signed, bundled `.app` and `.dmg` in 4m03s           |
+| `"NSM Flow.app/Contents/MacOS/nsm-flow" --list-devices`                              | Pass — `metal` (Apple M4 Pro, 49152MB) and `cpu` devices listed, no crash |
+| `curl` against all 6 README/QA-guide download URLs                                   | **All 404** — see Finding 1                                               |
 
 ## What I verified by building (macOS Apple silicon)
 
@@ -291,3 +291,109 @@ real hardware once real installers exist (see Finding 1):
 
 None. The working tree is identical to `HEAD` (`bfa1d80`). This report file
 (`CLAUDE_CODE_AUDIT_REPORT.md`) is the only new file.
+
+---
+
+## Post-audit Indian-English benchmark addendum
+
+**Trigger:** a real 20.58-second Indian-English Parakeet benchmark recording
+correctly transcribed every tested Indian name, city, food, and temple, but
+emitted **"Kanjivram Sari"** instead of the preferred **"Kanjeevaram saree"**
+for one textile term. This addendum reviews the follow-up patch, scoped to
+exactly three uncommitted items: `src-tauri/src/audio_toolkit/text.rs`, the
+new `src-tauri/resources/lexicons/india-aliases.tsv`, and formatting-only
+diffs in this report.
+
+### What the patch does
+
+`apply_custom_words` gained a phrase-alias pass that runs before the existing
+fuzzy n-gram matcher. It reads `india-aliases.tsv` (compiled in via
+`include_str!`, same pattern already used for `india-core.txt`) as literal
+"heard phrase → preferred phrase" pairs. An alias only fires when: (1) the
+transcript contains one of the exact heard phrases (`Kanjivram Sari`,
+`Kanjivram saree`, `Kanjivaram Sari`, `Kanjivaram saree`, `Kanjeevaram Sari`),
+compared via the same punctuation-stripped/lowercased key used elsewhere in
+this file, **and** (2) the user's own custom-word vocabulary already contains
+the preferred canonical phrase (`Kanjeevaram saree`), matched
+case-insensitively. Generic single words like "sari" are never touched — only
+the five specific multi-word phrases in the TSV.
+
+### What I reviewed and fixed
+
+- **Correctness / gating:** confirmed the alias only activates when the
+  preferred phrase is present in `custom_words`; without it, the phrase
+  passes through unchanged (real benchmark behavior for any user who hasn't
+  added "Kanjeevaram saree" as a custom word is unaffected).
+- **Boundary safety:** the alias loop reuses the existing
+  punctuation-boundary guard (`extract_punctuation`) so a comma between words
+  (e.g. "Kanjivram, Sari") correctly blocks the multi-word match, same as the
+  pre-existing fuzzy-match n-gram logic.
+- **Punctuation/casing:** prefix/suffix punctuation is preserved from the
+  first/last matched word, and `preserve_case_pattern` (already used
+  elsewhere in the file) sets the output case from the original first word.
+- **No generic global rewrite:** verified the TSV only contains full
+  multi-word phrases, not single common words, so it cannot rewrite ordinary
+  English usage of "sari" on its own.
+- **Formatting-only diff:** confirmed the `CLAUDE_CODE_AUDIT_REPORT.md`
+  changes are pure Prettier reflow (table alignment, `*emphasis*` →
+  `_emphasis_`), including one line that looks unindented
+  (`{manual, user_edits}`) — that's Prettier's own canonical output for a
+  list-item paragraph continuation (CommonMark "lazy continuation"; still
+  renders correctly inside the bullet). Confirmed via `bun run format:check`.
+- **Fix applied (perf/thread safety):** the alias n-gram loop was running
+  unconditionally for every word position — up to 6 string allocations per
+  word — even when the enabled-alias list is empty, which is true for every
+  user who hasn't added the exact preferred phrase as a custom word (the
+  common case). Added an `if !enabled_india_aliases.is_empty()` guard around
+  that loop so it's skipped entirely unless the feature is actually active
+  for that user. `INDIA_CORE_ALIAS_KEYS` remains a `once_cell::sync::Lazy`,
+  built once and shared read-only across threads, consistent with the
+  existing `INDIA_CORE_LEXICON`/other statics in this codebase.
+- **Tests added** (`src-tauri/src/audio_toolkit/text.rs`): case-insensitive
+  gate (`test_india_alias_gate_is_case_insensitive`), no rewrite of the bare
+  word "sari" when only the phrase-specific alias is enabled
+  (`test_india_alias_does_not_rewrite_generic_word_alone`), no cross-comma
+  merge (`test_india_alias_does_not_cross_punctuation_boundary`), and
+  trailing-punctuation preservation
+  (`test_india_alias_preserves_trailing_punctuation`).
+
+### Exact tests run and results
+
+| Command                                                 | Result                                 |
+| ------------------------------------------------------- | -------------------------------------- |
+| `cargo test --lib audio_toolkit::text`                  | Pass — 48/48 (44 pre-existing + 4 new) |
+| `cargo test --lib` (full backend suite)                 | Pass — **158/158**, 0 failed           |
+| `cargo clippy --all-targets -- -D warnings`             | Pass — zero warnings                   |
+| `bun run format:check` (Prettier + `cargo fmt --check`) | Pass                                   |
+| `bun run lint` (ESLint)                                 | Pass, no output/errors                 |
+| `bun run check:translations`                            | Pass — 23 languages, all keys present  |
+
+### Real benchmark before/after (the triggering case)
+
+|                                                                | Text                                                  |
+| -------------------------------------------------------------- | ----------------------------------------------------- |
+| Real Parakeet output (20.58s Indian-English clip)              | "...the **Kanjivram Sari** tomorrow..."               |
+| With `Kanjeevaram saree` added as a custom word, alias applied | "...the **Kanjeevaram saree** tomorrow..."            |
+| Without that custom word present                               | unchanged — "Kanjivram Sari" passes through as before |
+
+This is confirmed at the unit-test level
+(`test_known_india_asr_phrase_uses_preferred_spelling`,
+`test_india_alias_requires_the_preferred_custom_word`) using the literal
+wording from the real benchmark transcript. I did not re-run the full audio
+pipeline against the original 20.58s recording in this session — see
+limits below.
+
+### Remaining physical-test limits
+
+- This review is code- and unit-test-level. It does not replay the original
+  20.58-second audio file through the live Parakeet pipeline in this session
+  to confirm the end-to-end (audio → transcription → correction) output
+  matches the table above; the unit tests substitute the exact real-world
+  wording but bypass the audio/model stage.
+- No new physical-hardware testing was done on Windows or a second physical
+  Mac for this change, consistent with the pending physical-test gaps
+  already recorded above.
+- This addendum makes no "100%"/"perfect" claim: the alias list currently
+  covers five known spelling variants for one term family; other
+  never-observed misrecognitions of other Indian-English phrases are not
+  covered by this patch and would need their own reported cases.

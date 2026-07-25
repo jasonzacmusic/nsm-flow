@@ -397,3 +397,80 @@ limits below.
   covers five known spelling variants for one term family; other
   never-observed misrecognitions of other Indian-English phrases are not
   covered by this patch and would need their own reported cases.
+
+---
+
+## Post-audit Intel/Rosetta launch-failure addendum
+
+**Trigger:** the hosted x86_64 DMG passed `hdiutil`/`codesign` on its Intel
+builder, but on an Apple Silicon Mac the executable failed to launch under
+Rosetta — hardened runtime library validation rejected the bundled
+ad-hoc-signed `libonnxruntime.1.24.2.dylib` for a Team-ID mismatch with the
+main executable. This addendum reviews the single uncommitted change made to
+fix it: `src-tauri/Entitlements.plist`.
+
+### The change
+
+Adds `com.apple.security.cs.disable-library-validation` = `true` to the
+existing two-key hardened-runtime entitlements (microphone, audio-input),
+with a comment explaining it's needed until the app and the bundled ONNX
+Runtime framework share one real signing identity.
+
+### Independent reproduction
+
+Using the leftover copied/re-signed x86_64 app bundle from this exercise
+(`/private/tmp/nsm-flow-intel-sign.o9fFzR/NSM Flow.app` — ad hoc signed,
+hardened runtime on, `TeamIdentifier=not set` on both the executable and the
+framework dylib):
+
+| Test                                                                                                        | Result                                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `arch -x86_64 nsm-flow --help` / `--list-devices`, entitlement present (as committed)                       | Pass — exit 0, correct output (`Apple M4 Pro` devices listed)                                                                                        |
+| Negative control: same bundle re-signed ad hoc/hardened-runtime, entitlement **removed**, run under Rosetta | Fails immediately: `dyld... code signature ... not valid for use in process: mapping process and mapped file (non-platform) have different Team IDs` |
+
+The negative control reproduces the exact reported failure mode and confirms
+this specific entitlement — not just ad hoc signing generally — is what
+fixes it.
+
+### Assessment
+
+- **Correct fix, Apple-documented exception.** `com.apple.security.cs.disable-library-validation`
+  is the entitlement Apple specifies for hardened-runtime apps that load
+  third-party frameworks not signed with the same Team ID. There's no
+  narrower official entitlement for "trust just this one dylib."
+- **Scope is macOS-only, both architectures, no Windows/Linux effect.**
+  `tauri.conf.json` has a single `bundle.macOS.entitlements` path shared by
+  both `x86_64-apple-darwin` and `aarch64-apple-darwin` (no per-arch
+  override exists in this config) — Windows uses Authenticode signing via
+  `tauri.windows.conf.json` and Linux packaging is unrelated; neither
+  references this plist. In practice, only the x86_64 build's CI step
+  (`build.yml`, "Install ONNX Runtime (x86_64 macOS)") bundles an external
+  ad-hoc-signed dylib framework at all, so the relaxation is inert on
+  Apple Silicon today, but it is present in the arm64 signature too since
+  the entitlements file is shared — worth knowing, not worth splitting the
+  file for an unsigned alpha.
+- **Security tradeoff:** this disables AMFI's per-dylib Team-ID check for
+  the whole process, not just the ONNX Runtime library — any dylib loaded
+  at runtime skips that check. For a real Developer-ID-signed, notarized
+  release this would be worth minimizing (e.g. co-signing the bundled ORT
+  dylib with the app's own Team ID instead, which removes the need for the
+  entitlement entirely). For this unsigned ad hoc public alpha
+  (`signingIdentity: "-"`, no notarization, Gatekeeper already treats it as
+  untrusted), the incremental exposure is small and the fix matches what
+  Apple documents for this exact scenario.
+- **XML/config check:** `plutil -lint src-tauri/Entitlements.plist` → OK.
+  Key name matches Apple's documented identifier exactly; no typo. The new
+  key sits correctly inside the existing `<dict>`; no structural issue. No
+  local fix was needed — the plist as committed is already correct.
+
+### Remaining work
+
+This confirms the fix at the plist/entitlement and single-binary level only.
+**Not done in this session:** rebuilding and re-signing the actual release
+DMGs (Intel and Apple Silicon) with this entitlements file through the real
+CI pipeline, and re-running `hdiutil`/`codesign`/Gatekeeper checks plus a
+fresh Rosetta smoke test against those rebuilt DMGs — the scratch bundle
+used here was a hand-copied/re-signed artifact from the original debugging
+session, not a pipeline-built one. That rebuild/retest is required before
+these DMGs are published, consistent with Finding 1's existing publishing
+blocker above.

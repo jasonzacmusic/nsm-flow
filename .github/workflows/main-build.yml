@@ -1,9 +1,8 @@
 name: "NSM Flow Desktop Build"
 
-on:
-  workflow_dispatch:
-  push:
-    branches: [main]
+# Full macOS + Windows installers are expensive and are not needed for every
+# source commit. CI still runs on pushes; installers remain available on demand.
+on: workflow_dispatch
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

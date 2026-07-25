@@ -1,0 +1,1276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Nathaniel School of Music intern testing and bug-reporting guide for NSM Flow."
+    />
+    <title>NSM Flow — Intern QA Mission</title>
+    <style>
+      :root {
+        --ink: #172132;
+        --muted: #647083;
+        --paper: #fffdf8;
+        --card: #ffffff;
+        --line: #dedbd2;
+        --navy: #12263f;
+        --blue: #1d5b79;
+        --teal: #169c89;
+        --gold: #e2a72e;
+        --rose: #c84c61;
+        --soft-blue: #eaf5fb;
+        --soft-green: #e8f7f2;
+        --soft-gold: #fff4d7;
+        --soft-rose: #fdecef;
+        --shadow: 0 18px 50px rgba(18, 38, 63, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        color: var(--ink);
+        background:
+          radial-gradient(
+            circle at 8% 4%,
+            rgba(22, 156, 137, 0.1),
+            transparent 24rem
+          ),
+          radial-gradient(
+            circle at 92% 2%,
+            rgba(226, 167, 46, 0.14),
+            transparent 22rem
+          ),
+          var(--paper);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--blue);
+      }
+
+      .page {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .hero {
+        position: relative;
+        overflow: hidden;
+        margin: 24px auto 34px;
+        padding: clamp(32px, 7vw, 76px);
+        color: white;
+        border-radius: 30px;
+        background:
+          linear-gradient(
+            120deg,
+            rgba(18, 38, 63, 0.98),
+            rgba(29, 91, 121, 0.92)
+          ),
+          var(--navy);
+        box-shadow: var(--shadow);
+      }
+
+      .hero::after {
+        position: absolute;
+        right: -80px;
+        bottom: -110px;
+        width: 330px;
+        height: 330px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 50%;
+        box-shadow:
+          0 0 0 38px rgba(255, 255, 255, 0.045),
+          0 0 0 76px rgba(255, 255, 255, 0.025);
+        content: "";
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 34px;
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .brand-mark {
+        display: grid;
+        width: 34px;
+        height: 34px;
+        place-items: center;
+        color: var(--navy);
+        border-radius: 11px;
+        background: linear-gradient(135deg, #79e6d4, #f8c85f);
+        font-size: 1.05rem;
+      }
+
+      h1 {
+        max-width: 780px;
+        margin: 0;
+        font-size: clamp(2.55rem, 7vw, 5.8rem);
+        line-height: 0.98;
+        letter-spacing: -0.055em;
+      }
+
+      .hero p {
+        max-width: 720px;
+        margin: 26px 0 0;
+        color: rgba(255, 255, 255, 0.82);
+        font-size: clamp(1rem, 2.2vw, 1.28rem);
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 30px;
+      }
+
+      .pill {
+        padding: 7px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: white;
+        font-size: 0.86rem;
+        font-weight: 700;
+      }
+
+      .contents {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 42px;
+      }
+
+      .contents a {
+        padding: 15px 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        color: var(--ink);
+        font-size: 0.92rem;
+        font-weight: 750;
+        text-decoration: none;
+      }
+
+      .contents a:hover {
+        border-color: var(--teal);
+        transform: translateY(-1px);
+      }
+
+      section {
+        margin: 30px 0 54px;
+        scroll-margin-top: 24px;
+      }
+
+      .section-kicker {
+        margin-bottom: 6px;
+        color: var(--teal);
+        font-size: 0.78rem;
+        font-weight: 850;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: clamp(1.75rem, 4vw, 2.8rem);
+        line-height: 1.1;
+        letter-spacing: -0.035em;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 1.15rem;
+        line-height: 1.25;
+      }
+
+      .lead {
+        max-width: 820px;
+        margin: 0 0 24px;
+        color: var(--muted);
+        font-size: 1.04rem;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .grid.three {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .card {
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: var(--card);
+        box-shadow: 0 8px 24px rgba(18, 38, 63, 0.05);
+      }
+
+      .card p:last-child,
+      .card ul:last-child,
+      .card ol:last-child {
+        margin-bottom: 0;
+      }
+
+      .callout {
+        padding: 22px 24px;
+        border-left: 5px solid var(--teal);
+        border-radius: 4px 18px 18px 4px;
+        background: var(--soft-green);
+      }
+
+      .callout.warning {
+        border-left-color: var(--gold);
+        background: var(--soft-gold);
+      }
+
+      .callout.danger {
+        border-left-color: var(--rose);
+        background: var(--soft-rose);
+      }
+
+      .callout strong {
+        display: block;
+        margin-bottom: 3px;
+      }
+
+      .steps {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        counter-reset: steps;
+      }
+
+      .steps li {
+        position: relative;
+        min-height: 44px;
+        margin-bottom: 14px;
+        padding: 9px 0 9px 54px;
+        counter-increment: steps;
+      }
+
+      .steps li::before {
+        position: absolute;
+        top: 2px;
+        left: 0;
+        display: grid;
+        width: 40px;
+        height: 40px;
+        place-items: center;
+        border-radius: 13px;
+        background: var(--navy);
+        color: white;
+        content: counter(steps);
+        font-weight: 850;
+      }
+
+      .checklist {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .checklist li {
+        position: relative;
+        margin: 9px 0;
+        padding-left: 30px;
+      }
+
+      .checklist li::before {
+        position: absolute;
+        top: 1px;
+        left: 0;
+        width: 19px;
+        height: 19px;
+        border: 2px solid #91a0ad;
+        border-radius: 6px;
+        content: "";
+      }
+
+      .code {
+        display: inline-block;
+        min-width: 2.6rem;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: #eaf0f4;
+        color: var(--navy);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.83em;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .table-wrap {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: white;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+
+      th,
+      td {
+        padding: 14px 15px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      th {
+        color: var(--navy);
+        background: #f3f7f9;
+        font-size: 0.76rem;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .expected {
+        color: #0a705f;
+        font-weight: 750;
+      }
+
+      .severity {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 0.76rem;
+        font-weight: 850;
+      }
+
+      .s0 {
+        color: white;
+        background: #a61b34;
+      }
+
+      .s1 {
+        color: #8b1d31;
+        background: #ffd9df;
+      }
+
+      .s2 {
+        color: #7a5110;
+        background: #ffefbc;
+      }
+
+      .s3 {
+        color: #22546c;
+        background: #dff1fa;
+      }
+
+      .template {
+        overflow-x: auto;
+        margin: 0;
+        padding: 22px;
+        border-radius: 18px;
+        background: #101d2d;
+        color: #e9f0f6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.85rem;
+        line-height: 1.65;
+        white-space: pre-wrap;
+      }
+
+      .music-strip {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 18px 0 0;
+      }
+
+      .music-strip span {
+        min-width: 72px;
+        padding: 10px 14px;
+        border: 1px solid #bfd9e5;
+        border-radius: 14px;
+        background: var(--soft-blue);
+        color: var(--navy);
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .download-link {
+        display: block;
+        margin-top: 12px;
+        padding: 11px 14px;
+        border-radius: 12px;
+        background: var(--navy);
+        color: white;
+        font-weight: 800;
+        text-align: center;
+        text-decoration: none;
+      }
+
+      .download-link:hover {
+        background: var(--blue);
+      }
+
+      footer {
+        margin: 70px 0 26px;
+        padding: 28px 0;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 820px) {
+        .contents,
+        .grid,
+        .grid.three {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          border-radius: 22px;
+        }
+      }
+
+      @media print {
+        body {
+          background: white;
+          font-size: 10pt;
+        }
+
+        .page {
+          width: 100%;
+        }
+
+        .hero {
+          margin-top: 0;
+          padding: 32px;
+          border-radius: 0;
+          box-shadow: none;
+        }
+
+        .contents {
+          display: none;
+        }
+
+        .card,
+        .table-wrap {
+          break-inside: avoid;
+          box-shadow: none;
+        }
+
+        section {
+          margin-bottom: 30px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="brand">
+          <span class="brand-mark">♪</span>
+          Nathaniel School of Music
+        </div>
+        <h1>Break NSM Flow. Make it brilliant.</h1>
+        <p>
+          Intern QA mission for the free, local-first voice typing app. Your job
+          is to find every reproducible weakness before the wider NSM team does:
+          wrong words, bad formatting, musical errors, privacy surprises,
+          crashes, lag, and app-specific failures.
+        </p>
+        <div class="hero-meta">
+          <span class="pill">Target build: 0.3.0-alpha.1</span>
+          <span class="pill">Mac + Windows</span>
+          <span class="pill">One bug per report</span>
+          <span class="pill">Use dummy data only</span>
+        </div>
+      </header>
+
+      <nav class="contents" aria-label="Guide contents">
+        <a href="#rules">01 · Ground rules</a>
+        <a href="#install">02 · Install</a>
+        <a href="#matrix">03 · Test matrix</a>
+        <a href="#music">04 · Musical typing</a>
+        <a href="#language">05 · India accuracy</a>
+        <a href="#apps">06 · Apps & email</a>
+        <a href="#stress">07 · Stress & privacy</a>
+        <a href="#report">08 · Report bugs</a>
+      </nav>
+
+      <section id="rules">
+        <div class="section-kicker">01 · Mission rules</div>
+        <h2>Test fearlessly. Handle data carefully.</h2>
+        <p class="lead">
+          This is an alpha build. A successful test is not “it opened once.” A
+          successful test tells us exactly what works, what fails, how often,
+          and on which machine.
+        </p>
+        <div class="grid three">
+          <article class="card">
+            <h3>Use fake information</h3>
+            <p>
+              Never dictate real student details, payment data, passwords,
+              health information, private emails, or confidential NSM messages.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Do not send anything</h3>
+            <p>
+              Test inside drafts or blank documents. Do not press Send in Gmail,
+              WhatsApp, Outlook, ChatGPT, or any production system.
+            </p>
+          </article>
+          <article class="card">
+            <h3>Capture evidence</h3>
+            <p>
+              For every failure, keep the exact spoken sentence, actual output,
+              expected output, screen recording or screenshot, and repetition
+              count.
+            </p>
+          </article>
+        </div>
+        <div class="callout warning" style="margin-top: 18px">
+          <strong
+            >“100% working” is a release target, not an assumption.</strong
+          >
+          If a test passes once, repeat it. If it fails once, try to reproduce
+          it three times and report the result—even if restarting the app fixes
+          it.
+        </div>
+      </section>
+
+      <section id="install">
+        <div class="section-kicker">02 · Installation gate</div>
+        <h2>Start from a clean, known setup.</h2>
+        <p class="lead">
+          Record your tester ID, machine details, and exact app version before
+          testing. Download only from the Nathaniel Labs links below. The
+          complete ZIP contains this guide, every current installer, checksums,
+          release notes, and the audit brief.
+        </p>
+        <div class="grid three" style="margin-bottom: 16px">
+          <article class="card">
+            <h3>Mac · Apple silicon</h3>
+            <p>M1, M2, M3, M4 and later Apple chips.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-mac-Apple-Silicon.dmg"
+              >Download DMG</a
+            >
+          </article>
+          <article class="card">
+            <h3>Mac · Intel</h3>
+            <p>Intel-based Macs. Do not use this build on Apple silicon.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-mac-Intel.dmg"
+              >Download DMG</a
+            >
+          </article>
+          <article class="card">
+            <h3>Windows · Recommended</h3>
+            <p>Windows 10 or 11, x64. Use the Setup EXE first.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-windows-x64-setup.exe"
+              >Download Setup EXE</a
+            >
+          </article>
+          <article class="card">
+            <h3>Windows · MSI</h3>
+            <p>Alternative installer for managed Windows computers.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-windows-x64.msi"
+              >Download MSI</a
+            >
+          </article>
+          <article class="card">
+            <h3>Complete QA bundle</h3>
+            <p>All installers, this guide, checksums and audit documents.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-0.3.0-alpha.1-complete.zip"
+              >Download ZIP</a
+            >
+          </article>
+          <article class="card">
+            <h3>Checksums</h3>
+            <p>Verify the downloaded files before testing or redistributing.</p>
+            <a
+              class="download-link"
+              href="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-0.3.0-alpha.1-SHA256SUMS.txt"
+              >Download SHA-256 file</a
+            >
+          </article>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Mac</h3>
+            <ol class="steps">
+              <li>Open the supplied DMG and drag NSM Flow to Applications.</li>
+              <li>
+                If macOS warns that the internal build is unsigned,
+                Control-click the app, choose Open, and confirm only if the file
+                came from NSM.
+              </li>
+              <li>Allow Microphone and Accessibility when macOS asks.</li>
+              <li>
+                Complete onboarding and download the recommended local model.
+              </li>
+              <li>
+                Confirm the default push-to-talk shortcut shown in NSM Flow is
+                <strong>Fn</strong>.
+              </li>
+            </ol>
+          </article>
+          <article class="card">
+            <h3>Windows</h3>
+            <ol class="steps">
+              <li>Open the supplied NSM Flow setup file.</li>
+              <li>
+                If SmartScreen appears, continue only when the installer name
+                and source match the coordinator's message.
+              </li>
+              <li>Allow microphone access when Windows asks.</li>
+              <li>
+                Complete onboarding and download the recommended local model.
+              </li>
+              <li>
+                Confirm the default push-to-talk shortcut shown in NSM Flow is
+                <strong>Ctrl+Space</strong>.
+              </li>
+            </ol>
+          </article>
+        </div>
+        <div class="card" style="margin-top: 16px">
+          <h3>Installation checklist</h3>
+          <ul class="checklist">
+            <li>
+              The installer completes without freezing or unexplained errors.
+            </li>
+            <li>The app opens from Applications or the Start menu.</li>
+            <li>The NSM Flow name and icon appear correctly.</li>
+            <li>Onboarding text fits the screen and every button works.</li>
+            <li>
+              Microphone and Accessibility instructions are understandable.
+            </li>
+            <li>A local speech model downloads and becomes selectable.</li>
+            <li>The app can quit and reopen without repeating onboarding.</li>
+            <li>Settings remain after restart.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="matrix">
+        <div class="section-kicker">03 · Required coverage</div>
+        <h2>Every tester completes the core matrix.</h2>
+        <p class="lead">
+          Use a quiet room first, then repeat selected tests with a fan, music,
+          another person talking, and a Bluetooth headset. Mark each cell Pass,
+          Fail, Intermittent, or Not available.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Mac apps</th>
+                <th>Windows apps</th>
+                <th>Minimum repetitions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Plain typing</strong></td>
+                <td>TextEdit, Notes</td>
+                <td>Notepad</td>
+                <td>20 short + 10 long</td>
+              </tr>
+              <tr>
+                <td><strong>Email</strong></td>
+                <td>Apple Mail draft, Gmail draft</td>
+                <td>Outlook draft, Gmail draft</td>
+                <td>10 per app</td>
+              </tr>
+              <tr>
+                <td><strong>Messaging</strong></td>
+                <td>WhatsApp draft, Messages</td>
+                <td>WhatsApp draft</td>
+                <td>10 per app</td>
+              </tr>
+              <tr>
+                <td><strong>AI prompt</strong></td>
+                <td>ChatGPT or Claude input</td>
+                <td>ChatGPT or Claude input</td>
+                <td>10; do not submit</td>
+              </tr>
+              <tr>
+                <td><strong>Music</strong></td>
+                <td>REAPER notes, MuseScore text</td>
+                <td>REAPER notes, MuseScore text</td>
+                <td>All phrases below</td>
+              </tr>
+              <tr>
+                <td><strong>Documents</strong></td>
+                <td>Pages or Google Docs</td>
+                <td>Word or Google Docs</td>
+                <td>10 per app</td>
+              </tr>
+              <tr>
+                <td><strong>Hardware</strong></td>
+                <td>Built-in + wired/Bluetooth</td>
+                <td>Built-in + wired/Bluetooth</td>
+                <td>5 per microphone</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="music">
+        <div class="section-kicker">04 · Signature feature</div>
+        <h2>Musical typing must be musically correct.</h2>
+        <p class="lead">
+          Speak naturally. The finished text must use real Unicode accidentals,
+          not the words “flat” and “sharp,” not a hashtag, and not a lowercase
+          letter b pretending to be a flat.
+        </p>
+        <div class="music-strip" aria-label="Supported musical symbols">
+          <span>B♭</span><span>F♯</span><span>C♮</span><span>B𝄫</span
+          ><span>C𝄪</span><span>B♭maj7</span><span>G7♭9</span><span>Dø7</span
+          ><span>A/C♯</span><span>6/8</span><span>♩ = 120</span>
+        </div>
+        <div class="table-wrap" style="margin-top: 20px">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Say exactly</th>
+                <th>Expected text</th>
+                <th>Watch for</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="code">M01</span></td>
+                <td>B flat major</td>
+                <td class="expected">B♭</td>
+                <td>Bb, B flat, B#</td>
+              </tr>
+              <tr>
+                <td><span class="code">M02</span></td>
+                <td>E flat minor and F sharp major</td>
+                <td class="expected">E♭m and F♯</td>
+                <td>Missing or swapped symbols</td>
+              </tr>
+              <tr>
+                <td><span class="code">M03</span></td>
+                <td>Play C sharp 4 then D flat 4</td>
+                <td class="expected">Play C♯4 then D♭4</td>
+                <td>Space before octave</td>
+              </tr>
+              <tr>
+                <td><span class="code">M04</span></td>
+                <td>C natural resolves to B natural</td>
+                <td class="expected">C♮ resolves to B♮</td>
+                <td>Natural symbol omitted</td>
+              </tr>
+              <tr>
+                <td><span class="code">M05</span></td>
+                <td>C double sharp and B double flat</td>
+                <td class="expected">C𝄪 and B𝄫</td>
+                <td>Two single symbols instead</td>
+              </tr>
+              <tr>
+                <td><span class="code">M06</span></td>
+                <td>Use the flat sign, sharp sign, and natural sign</td>
+                <td class="expected">Use the ♭, ♯, and ♮</td>
+                <td>Command words left behind</td>
+              </tr>
+              <tr>
+                <td><span class="code">M07</span></td>
+                <td>The flat fee was fair, but the reply sounded sharp</td>
+                <td class="expected">
+                  The flat fee was fair, but the reply sounded sharp
+                </td>
+                <td>Ordinary English wrongly changed</td>
+              </tr>
+              <tr>
+                <td><span class="code">M08</span></td>
+                <td>
+                  In bar 12 play B flat major seven, E flat minor seven, then F
+                  sharp
+                </td>
+                <td class="expected">In bar 12 play B♭maj7, E♭m7, then F♯</td>
+                <td>Words or bar number altered</td>
+              </tr>
+              <tr>
+                <td><span class="code">M09</span></td>
+                <td>
+                  G dominant seven flat nine and C major seven sharp eleven
+                </td>
+                <td class="expected">G7♭9 and Cmaj7♯11</td>
+                <td>Alteration or extension omitted</td>
+              </tr>
+              <tr>
+                <td><span class="code">M10</span></td>
+                <td>C sharp diminished seven and D half diminished seven</td>
+                <td class="expected">C♯°7 and Dø7</td>
+                <td>° and ø confused</td>
+              </tr>
+              <tr>
+                <td><span class="code">M11</span></td>
+                <td>C major over E and D minor over F sharp</td>
+                <td class="expected">C/E and Dm/F♯</td>
+                <td>Bass note lost or attached incorrectly</td>
+              </tr>
+              <tr>
+                <td><span class="code">M12</span></td>
+                <td>D suspended four, G add nine, and A power five</td>
+                <td class="expected">Dsus4, Gadd9, and A5</td>
+                <td>Chord quality expanded or misheard</td>
+              </tr>
+              <tr>
+                <td><span class="code">M13</span></td>
+                <td>Start in six eight time, then change to seven four time</td>
+                <td class="expected">
+                  Start in 6/8 time, then change to 7/4 time
+                </td>
+                <td>Numbers joined or reversed</td>
+              </tr>
+              <tr>
+                <td><span class="code">M14</span></td>
+                <td>Dotted quarter note equals 96 and 120 beats per minute</td>
+                <td class="expected">♩. = 96 and 120 BPM</td>
+                <td>Tempo meaning changed</td>
+              </tr>
+              <tr>
+                <td><span class="code">M15</span></td>
+                <td>
+                  Quarter note symbol, eighth note symbol, and quarter rest
+                  symbol
+                </td>
+                <td class="expected">𝅘𝅥, 𝅘𝅥𝅮, and 𝄽</td>
+                <td>Font box, wrong value, or words left behind</td>
+              </tr>
+              <tr>
+                <td><span class="code">M16</span></td>
+                <td>A major problem caused a minor delay</td>
+                <td class="expected">A major problem caused a minor delay</td>
+                <td>Ordinary English converted into chords</td>
+              </tr>
+              <tr>
+                <td><span class="code">M17</span></td>
+                <td>Roman numeral two five one in C major</td>
+                <td class="expected">
+                  Musical meaning must remain exact; report the literal result
+                </td>
+                <td>Major/minor function invented</td>
+              </tr>
+              <tr>
+                <td><span class="code">M18</span></td>
+                <td>Nashville numbers one six four five</td>
+                <td class="expected">
+                  Sequence and number system must remain exact
+                </td>
+                <td>Numbers reordered or converted incorrectly</td>
+              </tr>
+              <tr>
+                <td><span class="code">M19</span></td>
+                <td>Sa Ri Ga Ma Pa Da Ni and Melakarta</td>
+                <td class="expected">
+                  Every swara and the spelling Melakarta remain exact
+                </td>
+                <td>Indian terms anglicised or replaced</td>
+              </tr>
+              <tr>
+                <td><span class="code">M20</span></td>
+                <td>Open REAPER, MuseScore, Logic Pro, and Pro Tools</td>
+                <td class="expected">
+                  REAPER, MuseScore, Logic Pro, and Pro Tools
+                </td>
+                <td>Brand casing or spacing changed</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout" style="margin-top: 18px">
+          <strong>Also explore beyond the script.</strong>
+          Try chord progressions, octaves 0–9, fast note sequences, pauses,
+          Indian and Western terminology in one sentence, and musical notation
+          inside an email or WhatsApp draft. Report every wrong enharmonic,
+          symbol, number, or musical meaning.
+        </div>
+      </section>
+
+      <section id="language">
+        <div class="section-kicker">
+          05 · Indian English and exact spellings
+        </div>
+        <h2>India-specific words must survive exactly.</h2>
+        <p class="lead">
+          NSM Flow ships a reviewed India lexicon for cities, clothing, food,
+          deities and sacred names, temples, educational institutions, and
+          personal names. Test each line slowly, normally, and quickly. Repeat
+          with at least two different speakers where possible. Never accept a
+          close-looking but wrong spelling.
+        </p>
+        <div class="grid">
+          <article class="card">
+            <h3>Exact name script</h3>
+            <ul class="checklist">
+              <li>
+                <span class="code">N01</span> Inchara, Chitra, and Chandana
+              </li>
+              <li><span class="code">N02</span> Arnabi and Srilatha</li>
+              <li><span class="code">N03</span> Aadya, Aarushi, and Anirudh</li>
+              <li><span class="code">N04</span> Kavyashree and Nusrath</li>
+              <li><span class="code">N05</span> Ritwik, Rupak, and Somanna</li>
+              <li><span class="code">N06</span> Nathaniel School of Music</li>
+              <li><span class="code">N07</span> Koramangala, Bangalore</li>
+              <li><span class="code">N08</span> Melakarta and Konnakol</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Exact India category script</h3>
+            <ul class="checklist">
+              <li>
+                <span class="code">I01</span> Bengaluru, Thiruvananthapuram,
+                Bhubaneswar, Guwahati, and Puducherry
+              </li>
+              <li>
+                <span class="code">I02</span> Kanjeevaram saree, mekhela chador,
+                phiran, Bandhani, and Chikankari
+              </li>
+              <li>
+                <span class="code">I03</span> bisi bele bath, pootharekulu,
+                chhena poda, masor tenga, and bebinca
+              </li>
+              <li>
+                <span class="code">I04</span> Guruvayurappan, Chamundeshwari,
+                Venkateswara, Guru Nanak, and Gautama Buddha
+              </li>
+              <li>
+                <span class="code">I05</span> Brihadeeswarar Temple,
+                Padmanabhaswamy Temple, Golden Temple, and Ajmer Sharif Dargah
+              </li>
+              <li>
+                <span class="code">I06</span> Kendriya Vidyalaya, Indian
+                Institute of Science, Visva-Bharati University, and Jamia Millia
+                Islamia
+              </li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Speech variation</h3>
+            <ul class="checklist">
+              <li>Quiet room, normal pace</li>
+              <li>Very slow and very fast speech</li>
+              <li>Soft voice and loud voice without clipping</li>
+              <li>South, North, East, West, and Northeast Indian accents</li>
+              <li>India-specific word inside a full English sentence</li>
+              <li>Two similar names in the same sentence</li>
+              <li>Room fan or AC running</li>
+              <li>Built-in and headset microphones</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout warning" style="margin-top: 18px">
+          <strong>Measure, do not guess.</strong>
+          For each scripted name or phrase, record correct attempts out of 10.
+          Example: “Chandana: 8/10 built-in mic, 10/10 headset.” Every
+          multi-word institution and temple must preserve its exact word order.
+          A spelling target has not passed merely because it worked once.
+        </div>
+      </section>
+
+      <section id="apps">
+        <div class="section-kicker">06 · App intelligence</div>
+        <h2>The same speech should fit the destination.</h2>
+        <p class="lead">
+          Dictate into empty drafts only. Confirm that text lands at the cursor,
+          preserves existing text, and does not send or submit automatically.
+          Formatting can be richer when an approved local AI formatter is
+          configured; explicit spoken commands must work without one.
+        </p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Destination</th>
+                <th>Required test</th>
+                <th>Expected behaviour</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="code">A01</span></td>
+                <td>Email draft</td>
+                <td>
+                  “subject line is July workshop new paragraph Hi Chitra, new
+                  paragraph Here are the details.”
+                </td>
+                <td class="expected">
+                  Subject on its own first line; greeting and body separated
+                </td>
+              </tr>
+              <tr>
+                <td><span class="code">A02</span></td>
+                <td>Email draft</td>
+                <td>
+                  Dictate a 120-word update with greeting, three points, and
+                  sign-off
+                </td>
+                <td class="expected">
+                  No invented facts, recipients, promises, greeting, or sign-off
+                </td>
+              </tr>
+              <tr>
+                <td><span class="code">A03</span></td>
+                <td>WhatsApp draft</td>
+                <td>Dictate the same update in conversational language</td>
+                <td class="expected">
+                  Readable short message; never auto-sends
+                </td>
+              </tr>
+              <tr>
+                <td><span class="code">A04</span></td>
+                <td>AI prompt box</td>
+                <td>Dictate a request with five constraints</td>
+                <td class="expected">
+                  Every constraint remains; never auto-submits
+                </td>
+              </tr>
+              <tr>
+                <td><span class="code">A05</span></td>
+                <td>Document</td>
+                <td>
+                  “Lesson plan new paragraph bullet point rhythm new bullet
+                  harmony”
+                </td>
+                <td class="expected">
+                  Heading text, paragraph break, and two clean bullets
+                </td>
+              </tr>
+              <tr>
+                <td><span class="code">A06</span></td>
+                <td>Existing paragraph</td>
+                <td>Place cursor in the middle and dictate three words</td>
+                <td class="expected">
+                  Text appears at cursor; surrounding text is untouched
+                </td>
+              </tr>
+              <tr>
+                <td><span class="code">A07</span></td>
+                <td>Code editor</td>
+                <td>Dictate text containing “B flat” inside a quoted value</td>
+                <td class="expected">
+                  Code mode preserves the literal words and punctuation
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="stress">
+        <div class="section-kicker">07 · Break the edges</div>
+        <h2>Stress, privacy, recovery, and polish.</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Shortcut and recording</h3>
+            <ul class="checklist">
+              <li>Tap shortcut too briefly</li>
+              <li>Hold for 5, 30, 60, and 180 seconds</li>
+              <li>Release while still speaking</li>
+              <li>Press Escape to cancel</li>
+              <li>Press the shortcut repeatedly and rapidly</li>
+              <li>Switch apps while recording</li>
+              <li>Lock and unlock the computer</li>
+              <li>Sleep and wake the computer</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Audio and devices</h3>
+            <ul class="checklist">
+              <li>Disconnect microphone mid-recording</li>
+              <li>Connect Bluetooth headphones after launch</li>
+              <li>Mute microphone at system level</li>
+              <li>Test silence and background speech</li>
+              <li>Test clipping from a voice too close to the mic</li>
+              <li>Change input device in settings</li>
+              <li>Verify no endless recording state remains</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Privacy and offline</h3>
+            <ul class="checklist">
+              <li>Disconnect internet and complete local dictation</li>
+              <li>Confirm failures explain what needs internet</li>
+              <li>Check audio retention remains Delete immediately</li>
+              <li>Inspect history; deleted items stay deleted</li>
+              <li>Ensure transcript text never appears in normal logs</li>
+              <li>Confirm local dictation works without any employee login</li>
+              <li>
+                If optional Google sign-in is visible, cancelling it must
+                recover cleanly and never expose a token
+              </li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Visual and accessibility</h3>
+            <ul class="checklist">
+              <li>Light and dark mode</li>
+              <li>Small laptop screen and large monitor</li>
+              <li>125%, 150%, and 200% display scaling</li>
+              <li>Keyboard-only navigation</li>
+              <li>Screen reader labels where available</li>
+              <li>Long model, microphone, and account names</li>
+              <li>No clipped text, overlap, or invisible controls</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout danger" style="margin-top: 18px">
+          <strong>Stop and report immediately</strong>
+          if NSM Flow sends a message without permission, pastes into the wrong
+          app, exposes private text or credentials, deletes unrelated data,
+          continually records after release, or causes repeated crashes.
+        </div>
+      </section>
+
+      <section id="report">
+        <div class="section-kicker">08 · Bug reporting</div>
+        <h2>One clear report can save hours.</h2>
+        <p class="lead">
+          Search existing issues first. If you have access to the private NSM
+          Flow GitHub repository, use the “Intern QA bug” issue form. Otherwise,
+          send the completed template below to your assigned NSM Flow
+          coordinator. One report must describe one bug.
+        </p>
+        <div class="grid" style="margin-bottom: 18px">
+          <article class="card">
+            <h3><span class="severity s0">S0</span> Stop testing</h3>
+            <p>
+              Data exposure, unintended send/submit, data loss, uncontrolled
+              recording, or system-level damage.
+            </p>
+          </article>
+          <article class="card">
+            <h3><span class="severity s1">S1</span> Critical</h3>
+            <p>
+              App will not install/open, repeat crash, no dictation, or output
+              consistently enters the wrong app.
+            </p>
+          </article>
+          <article class="card">
+            <h3><span class="severity s2">S2</span> Major</h3>
+            <p>
+              Wrong transcription or musical meaning, broken formatting,
+              unreliable shortcut, significant lag, or failed permission flow.
+            </p>
+          </article>
+          <article class="card">
+            <h3><span class="severity s3">S3</span> Minor</h3>
+            <p>
+              Visual polish, wording, alignment, small usability issue, or rare
+              failure with a practical workaround.
+            </p>
+          </article>
+        </div>
+        <pre class="template">
+TITLE: [S0/S1/S2/S3] Short result, app, and condition
+
+Tester ID:
+Date and time:
+NSM Flow version:
+Mac or Windows version:
+Computer model / CPU:
+Microphone:
+Destination app and version:
+Internet: online / offline
+Speech model selected:
+
+WHAT I WAS TRYING TO DO
+One sentence.
+
+EXACT WORDS I SPOKE
+Put the complete dummy-data test phrase here.
+
+EXPECTED RESULT
+Paste the exact correct text or behaviour.
+
+ACTUAL RESULT
+Paste the exact output. Do not silently correct it.
+
+STEPS TO REPRODUCE
+1.
+2.
+3.
+
+REPRODUCTION RATE
+Example: 3 failures in 10 attempts.
+
+SEVERITY AND IMPACT
+Why this blocks or harms a real employee workflow.
+
+EVIDENCE
+Attach a screenshot or short screen recording.
+Attach logs only after checking that they contain no private data.
+
+WORKAROUND
+What temporarily avoids the problem, if anything.</pre
+        >
+        <div class="card" style="margin-top: 18px">
+          <h3>Before closing your QA session</h3>
+          <ul class="checklist">
+            <li>Every required test has a recorded result.</li>
+            <li>Every failure was retried at least three times.</li>
+            <li>Every bug report contains exact spoken and actual text.</li>
+            <li>
+              Screenshots contain no personal or confidential information.
+            </li>
+            <li>Duplicate symptoms were linked, not filed repeatedly.</li>
+            <li>You reported passes as well as failures.</li>
+            <li>
+              You included three best improvements, even if they are not bugs.
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <footer>
+        Prepared for Nathaniel School of Music · NSM Flow 0.3.0-alpha.1 · Free
+        Nathaniel Labs public alpha · Product owner: Jason Zac
+      </footer>
+    </main>
+  </body>
+</html>

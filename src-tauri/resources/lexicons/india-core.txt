@@ -1,0 +1,533 @@
+# NSM Flow India Core Lexicon v1
+# One preferred spelling or multi-word phrase per line. Comments and blank
+# lines are ignored. The list is deliberately curated: exact spellings matter,
+# but a smaller reviewed list is safer than an uncontrolled scrape that turns
+# ordinary English into false Indian-name corrections.
+
+# Cities and regions
+Bengaluru
+Bangalore
+Mysuru
+Mangaluru
+Hubballi
+Dharwad
+Belagavi
+Shivamogga
+Tumakuru
+Udupi
+Manipal
+Madikeri
+Hassan
+Davanagere
+Kalaburagi
+Ballari
+Vijayapura
+Chennai
+Coimbatore
+Madurai
+Tiruchirappalli
+Tirunelveli
+Thanjavur
+Kanchipuram
+Vellore
+Salem
+Erode
+Puducherry
+Kochi
+Thiruvananthapuram
+Kozhikode
+Thrissur
+Kottayam
+Alappuzha
+Kannur
+Palakkad
+Kollam
+Hyderabad
+Secunderabad
+Visakhapatnam
+Vijayawada
+Tirupati
+Warangal
+Guntur
+Mumbai
+Navi Mumbai
+Pune
+Nagpur
+Nashik
+Kolhapur
+Chhatrapati Sambhajinagar
+Ahmedabad
+Gandhinagar
+Vadodara
+Surat
+Rajkot
+Panaji
+Margao
+New Delhi
+Gurugram
+Noida
+Ghaziabad
+Faridabad
+Chandigarh
+Amritsar
+Ludhiana
+Jalandhar
+Jaipur
+Jodhpur
+Udaipur
+Kota
+Ajmer
+Lucknow
+Varanasi
+Prayagraj
+Kanpur
+Agra
+Dehradun
+Haridwar
+Rishikesh
+Shimla
+Srinagar
+Jammu
+Leh
+Kolkata
+Howrah
+Darjeeling
+Siliguri
+Bhubaneswar
+Puri
+Cuttack
+Guwahati
+Shillong
+Imphal
+Aizawl
+Kohima
+Gangtok
+Itanagar
+Agartala
+Patna
+Ranchi
+Jamshedpur
+Raipur
+Bhopal
+Indore
+Andaman and Nicobar Islands
+Lakshadweep
+
+# Clothing, textiles, and traditional dress
+saree
+sari
+kurta
+kurti
+salwar kameez
+churidar
+dupatta
+lehenga
+ghagra choli
+anarkali
+sherwani
+bandhgala
+Nehru jacket
+dhoti
+mundu
+veshti
+lungi
+angavastram
+mekhela chador
+phiran
+kasavu saree
+Kanjeevaram saree
+Banarasi saree
+Paithani saree
+Chanderi saree
+Bandhani
+Ajrakh
+Kalamkari
+Ikat
+Pochampally
+Chikankari
+Phulkari
+Kantha
+Khadi
+Kota Doria
+Mysore silk
+Ilkal saree
+Kasuti
+Muga silk
+
+# Food and drink
+idli
+dosa
+masala dosa
+neer dosa
+set dosa
+uttapam
+vada
+medu vada
+sambar
+rasam
+upma
+uppittu
+poha
+avalakki
+bisi bele bath
+puliyogare
+chitranna
+ragi mudde
+akki rotti
+Mysore pak
+filter coffee
+appam
+puttu
+idiyappam
+avial
+thoran
+olan
+sadya
+pazham pori
+Malabar parotta
+meen moilee
+Hyderabadi biryani
+haleem
+mirchi ka salan
+gongura
+pesarattu
+punugulu
+pulihora
+pootharekulu
+Pongal
+ven pongal
+chakkara pongal
+Chettinad
+kothu parotta
+Kuzhi paniyaram
+Jigarthanda
+biryani
+pulao
+khichdi
+dal makhani
+rajma
+chole
+chole bhature
+pav bhaji
+vada pav
+misal pav
+pooran poli
+modak
+thepla
+dhokla
+khandvi
+undhiyu
+fafda
+jalebi
+dal baati churma
+gatte ki sabzi
+laal maas
+kachori
+lassi
+sarson da saag
+makki di roti
+amritsari kulcha
+rogan josh
+yakhni
+kahwa
+momos
+thukpa
+dal bhat
+litti chokha
+sattu
+rasgulla
+mishti doi
+shorshe ilish
+machher jhol
+kosha mangsho
+pakhala bhata
+dalma
+chhena poda
+Assamese thali
+khar
+masor tenga
+axone
+smoked pork with bamboo shoot
+Iromba
+Jadoh
+bebinca
+vindaloo
+xacuti
+sol kadhi
+kokum
+gulab jamun
+kulfi
+kheer
+payasam
+halwa
+
+# Deities, sacred names, and major traditions
+Shiva
+Mahadeva
+Parvati
+Ganesha
+Vishnu
+Lakshmi
+Saraswati
+Brahma
+Krishna
+Radha
+Rama
+Sita
+Hanuman
+Durga
+Kali
+Kartikeya
+Murugan
+Subramanya
+Ayyappa
+Venkateswara
+Balaji
+Jagannath
+Vitthala
+Rukmini
+Narasimha
+Dattatreya
+Shirdi Sai Baba
+Adi Shankaracharya
+Mariamman
+Meenakshi
+Andal
+Nataraja
+Ardhanarishvara
+Dakshinamurthy
+Guruvayurappan
+Bhagavati
+Mookambika
+Chamundeshwari
+Vaishno Devi
+Gautama Buddha
+Mahavira
+Guru Nanak
+Waheguru
+Jesus Christ
+Allah
+
+# Temples, shrines, and pilgrimage places
+Tirumala Venkateswara Temple
+Tirupati Balaji Temple
+Meenakshi Amman Temple
+Brihadeeswarar Temple
+Ramanathaswamy Temple
+Kapaleeshwarar Temple
+Arunachaleswarar Temple
+Nataraja Temple
+Kamakshi Amman Temple
+Sri Ranganathaswamy Temple
+Padmanabhaswamy Temple
+Sabarimala
+Guruvayur Temple
+Attukal Bhagavathy Temple
+Vadakkunnathan Temple
+Mookambika Temple
+Udupi Sri Krishna Matha
+Dharmasthala Manjunatha Temple
+Kukke Subramanya Temple
+Chamundeshwari Temple
+Virupaksha Temple
+ISKCON Bangalore
+Jagannath Temple
+Konark Sun Temple
+Kashi Vishwanath Temple
+Ayodhya Ram Mandir
+Mahakaleshwar Temple
+Somnath Temple
+Dwarkadhish Temple
+Akshardham
+Siddhivinayak Temple
+Shirdi Sai Baba Temple
+Trimbakeshwar Temple
+Vaishno Devi
+Golden Temple
+Hemkund Sahib
+Mahabodhi Temple
+Sanchi Stupa
+Velankanni Basilica
+St Francis Church
+Haji Ali Dargah
+Ajmer Sharif Dargah
+
+# Schools, colleges, universities, and national institutes
+Kendriya Vidyalaya
+Jawahar Navodaya Vidyalaya
+Delhi Public School
+National Public School
+The Valley School
+Bishop Cotton Boys' School
+Bishop Cotton Girls' School
+Baldwin Boys' High School
+Baldwin Girls' High School
+St Joseph's Boys' High School
+Sophia High School
+Inventure Academy
+Mallya Aditi International School
+National Centre for Excellence
+Sri Kumaran Children's Home
+Vidya Niketan School
+Vidyashilp Academy
+Greenwood High International School
+Stonehill International School
+Indus International School
+The International School Bangalore
+Canadian International School
+Indian Institute of Science
+Indian Institute of Technology
+Indian Institute of Management
+Indian Institute of Information Technology
+National Institute of Technology
+All India Institute of Medical Sciences
+National Law School of India University
+Christ University
+St Joseph's University
+Bangalore University
+Visvesvaraya Technological University
+University of Mysore
+Manipal Academy of Higher Education
+National Institute of Mental Health and Neuro Sciences
+National Institute of Design
+National School of Drama
+Film and Television Institute of India
+Srishti Manipal Institute of Art Design and Technology
+National Institute of Fashion Technology
+Jawaharlal Nehru University
+University of Delhi
+Jamia Millia Islamia
+Aligarh Muslim University
+Banaras Hindu University
+Savitribai Phule Pune University
+University of Mumbai
+Tata Institute of Social Sciences
+Birla Institute of Technology and Science
+Vellore Institute of Technology
+Anna University
+University of Madras
+Madras Christian College
+Loyola College
+SRM Institute of Science and Technology
+Amrita Vishwa Vidyapeetham
+University of Kerala
+Mahatma Gandhi University
+University of Calicut
+University of Hyderabad
+Osmania University
+Jadavpur University
+University of Calcutta
+Presidency University
+Visva-Bharati University
+Jain University
+Azim Premji University
+Ashoka University
+O P Jindal Global University
+Symbiosis International University
+Narsee Monjee Institute of Management Studies
+Indian Statistical Institute
+Tata Institute of Fundamental Research
+Indian Space Research Organisation
+IIT Bombay
+IIT Delhi
+IIT Madras
+IIT Kanpur
+IIT Kharagpur
+IIT Roorkee
+IIT Guwahati
+IIT Hyderabad
+IIM Ahmedabad
+IIM Bangalore
+IIM Calcutta
+IIM Kozhikode
+IIM Lucknow
+NIT Tiruchirappalli
+NIT Karnataka
+NIT Warangal
+NIT Calicut
+
+# Indian names across regions and communities
+Aadhya
+Aarav
+Aarohi
+Abhinav
+Aditya
+Advait
+Akash
+Akhil
+Akshara
+Amal
+Aman
+Amrita
+Ananya
+Anjali
+Ankita
+Arjun
+Arnav
+Arpita
+Ashwin
+Avinash
+Ayush
+Bhavana
+Bhuvan
+Charan
+Darshan
+Deepa
+Devika
+Dhruv
+Divya
+Farah
+Fatima
+Gautham
+Gayathri
+Harini
+Harish
+Ishaan
+Ishita
+Jasleen
+Joseph
+Jyoti
+Karthik
+Kavya
+Keerthana
+Khushi
+Krish
+Lakshmi
+Madhav
+Madhuri
+Manasa
+Meera
+Mohammed
+Mohammad
+Mohan
+Nandini
+Naveen
+Neha
+Nikhil
+Nisha
+Nitin
+Pooja
+Pranav
+Priya
+Rahul
+Rajesh
+Rakesh
+Rhea
+Rohan
+Rohit
+Sai
+Sakshi
+Sameer
+Sanjana
+Sanjay
+Shreya
+Siddharth
+Sneha
+Soham
+Swathi
+Tanvi
+Varun
+Vedant
+Vignesh
+Vikram
+Yash

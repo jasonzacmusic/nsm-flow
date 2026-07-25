@@ -1,0 +1,9 @@
+# Common ASR output<TAB>preferred spelling
+# These are deliberately phrase-specific. A generic word such as "sari" is
+# valid English and must not be globally rewritten just because a recognizer
+# missed part of a proper Indian textile name.
+Kanjivram Sari	Kanjeevaram saree
+Kanjivram saree	Kanjeevaram saree
+Kanjivaram Sari	Kanjeevaram saree
+Kanjivaram saree	Kanjeevaram saree
+Kanjeevaram Sari	Kanjeevaram saree

@@ -1,0 +1,119 @@
+name: Intern QA bug
+description: Report one reproducible NSM Flow problem from the intern test matrix
+title: "[INTERN QA] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use dummy data only. Search existing issues first, report one bug here, and never attach private NSM, student, payment, account, or credential information.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: S0 is a safety or privacy stop; S1 blocks the product; S2 is major; S3 is minor.
+      options:
+        - S0 - Stop testing
+        - S1 - Critical
+        - S2 - Major
+        - S3 - Minor
+    validations:
+      required: true
+  - type: input
+    id: tester
+    attributes:
+      label: Tester ID
+      placeholder: Example - INTERN-07
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: NSM Flow version
+      placeholder: Example - 0.3.0-alpha.1
+    validations:
+      required: true
+  - type: textarea
+    id: system
+    attributes:
+      label: System and test context
+      description: Include OS version, computer/CPU, microphone, destination app/version, selected speech model, and whether you were online.
+      placeholder: |
+        OS:
+        Computer / CPU:
+        Microphone:
+        Destination app:
+        Speech model:
+        Internet:
+    validations:
+      required: true
+  - type: input
+    id: matrix_id
+    attributes:
+      label: Test matrix ID
+      description: Use the ID from the intern guide, or write Exploratory.
+      placeholder: Example - M03
+    validations:
+      required: true
+  - type: textarea
+    id: spoken
+    attributes:
+      label: Exact words spoken
+      description: Use only dummy data and include the entire phrase.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: Paste the exact correct text or describe the correct behaviour.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Paste the output exactly as produced; do not correct it.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Opened...
+        2. Placed the cursor...
+        3. Held the shortcut and said...
+    validations:
+      required: true
+  - type: input
+    id: frequency
+    attributes:
+      label: Reproduction rate
+      placeholder: Example - 3 failures in 10 attempts
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact and workaround
+      description: Explain the employee impact and anything that temporarily avoids the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Drag in a screenshot or short recording after confirming that it contains no private data. Attach sanitized logs only when relevant.
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Final checks
+      options:
+        - label: I searched existing issues and did not find this exact bug.
+          required: true
+        - label: This report contains no real student, payment, account, credential, or confidential NSM data.
+          required: true
+        - label: I reported one bug only and preserved the exact actual output.
+          required: true

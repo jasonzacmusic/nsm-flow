@@ -7,6 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Configuration
 const LOCALES_DIR = path.join(__dirname, "..", "src", "i18n", "locales");
 const REFERENCE_LANG = "en";
+// New NSM-only surfaces intentionally use i18next's English fallback until
+// Nathaniel has reviewed native translations with speakers of each language.
+const ENGLISH_FALLBACK_KEYS = new Set([
+  "sidebar.team",
+  "settings.debug.recordingRetention.deleteImmediately",
+]);
+const ENGLISH_FALLBACK_PREFIXES = ["settings.team."];
 
 type TranslationData = Record<string, unknown>;
 
@@ -122,9 +129,13 @@ function validateTranslations(): void {
     }
 
     // Find missing keys
-    const missing = referenceKeyPaths.filter(
-      (keyPath) => !hasKeyPath(langData, keyPath),
-    );
+    const missing = referenceKeyPaths.filter((keyPath) => {
+      const dotted = keyPath.join(".");
+      const usesEnglishFallback =
+        ENGLISH_FALLBACK_KEYS.has(dotted) ||
+        ENGLISH_FALLBACK_PREFIXES.some((prefix) => dotted.startsWith(prefix));
+      return !usesEnglishFallback && !hasKeyPath(langData, keyPath);
+    });
 
     // Find extra keys (keys in language but not in reference)
     const langKeyPaths = getAllKeyPaths(langData);

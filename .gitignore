@@ -40,5 +40,9 @@ blob-report/
 .direnv
 .envrc
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Nix build output
 result

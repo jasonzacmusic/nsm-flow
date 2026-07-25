@@ -1,3 +1,5 @@
+#![allow(clippy::items_after_test_module)]
+
 mod actions;
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 mod apple_intelligence;
@@ -16,10 +18,12 @@ pub mod portable;
 mod settings;
 mod shortcut;
 mod signal_handle;
+mod team_auth;
 mod transcription_coordinator;
 mod tray;
 mod tray_i18n;
 mod utils;
+mod writing_mode;
 
 pub use cli::CliArgs;
 #[cfg(debug_assertions)]
@@ -49,7 +53,7 @@ use crate::settings::get_settings;
 
 // Global atomic to store the file log level filter
 // We use u8 to store the log::LevelFilter as a number
-pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(log::LevelFilter::Debug as u8);
+pub static FILE_LOG_LEVEL: AtomicU8 = AtomicU8::new(log::LevelFilter::Warn as u8);
 
 /// When `true`, log records are also forwarded to the webview via the
 /// `log://log` event for the debug panel's live log viewer. Gated on debug
@@ -672,6 +676,10 @@ pub fn run(cli_args: CliArgs) {
             commands::check_apple_intelligence_available,
             commands::initialize_enigo,
             commands::initialize_shortcuts,
+            team_auth::get_team_auth_status,
+            team_auth::get_team_member,
+            team_auth::google_sign_in,
+            team_auth::sign_out_team_member,
             commands::models::get_available_models,
             commands::models::get_model_info,
             commands::models::download_model,
@@ -758,11 +766,11 @@ pub fn run(cli_args: CliArgs) {
                     Target::new(if let Some(data_dir) = portable::data_dir() {
                         TargetKind::Folder {
                             path: data_dir.join("logs"),
-                            file_name: Some("handy".into()),
+                            file_name: Some("nsm-flow".into()),
                         }
                     } else {
                         TargetKind::LogDir {
-                            file_name: Some("handy".into()),
+                            file_name: Some("nsm-flow".into()),
                         }
                     })
                     .filter(|metadata| {
@@ -870,7 +878,7 @@ pub fn run(cli_args: CliArgs) {
             // for portable mode (redirects WebView2 cache to portable Data dir)
             let mut win_builder =
                 tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("/".into()))
-                    .title("Handy")
+                    .title("NSM Flow")
                     .inner_size(680.0, 570.0)
                     .min_inner_size(680.0, 570.0)
                     .resizable(true)

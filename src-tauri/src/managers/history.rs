@@ -331,6 +331,9 @@ impl HistoryManager {
         let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
 
         match retention_period {
+            crate::settings::RecordingRetentionPeriod::DeleteImmediately => {
+                self.delete_all_recordings()
+            }
             crate::settings::RecordingRetentionPeriod::Never => {
                 // Don't delete anything
                 Ok(())
@@ -364,7 +367,7 @@ impl HistoryManager {
 
             // Delete WAV file
             let file_path = self.recordings_dir.join(file_name);
-            if file_path.exists() {
+            if !file_name.is_empty() && file_path.is_file() {
                 if let Err(e) = fs::remove_file(&file_path) {
                     error!("Failed to delete WAV file {}: {}", file_name, e);
                 } else {
@@ -375,6 +378,29 @@ impl HistoryManager {
         }
 
         Ok(deleted_count)
+    }
+
+    fn delete_all_recordings(&self) -> Result<()> {
+        let conn = self.get_connection()?;
+        let mut stmt =
+            conn.prepare("SELECT id, file_name FROM transcription_history WHERE file_name != ''")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?;
+        let recordings = rows.collect::<std::result::Result<Vec<_>, _>>()?;
+        drop(stmt);
+
+        for (id, file_name) in recordings {
+            let file_path = self.recordings_dir.join(&file_name);
+            if file_path.is_file() {
+                fs::remove_file(&file_path)?;
+            }
+            conn.execute(
+                "UPDATE transcription_history SET file_name = '' WHERE id = ?1",
+                params![id],
+            )?;
+        }
+        Ok(())
     }
 
     fn cleanup_by_count(&self, limit: usize) -> Result<()> {
@@ -614,7 +640,7 @@ impl HistoryManager {
         if let Some(entry) = self.get_entry_by_id(id).await? {
             // Delete the audio file first
             let file_path = self.get_audio_file_path(&entry.file_name);
-            if file_path.exists() {
+            if !entry.file_name.is_empty() && file_path.is_file() {
                 if let Err(e) = fs::remove_file(&file_path) {
                     error!("Failed to delete audio file {}: {}", entry.file_name, e);
                     // Continue with database deletion even if file deletion fails

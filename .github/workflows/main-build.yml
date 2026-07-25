@@ -1,24 +1,44 @@
 name: "NSM Flow Desktop Build"
 
-# Full macOS + Windows installers are expensive and are not needed for every
-# source commit. CI still runs on pushes; installers remain available on demand.
-on: workflow_dispatch
+# The default is the Apple-silicon build used for Jason's Mac. The complete
+# Intel Mac + Windows matrix remains available when a release genuinely needs it.
+on:
+  workflow_dispatch:
+    inputs:
+      build_scope:
+        description: "Installer platforms"
+        required: true
+        default: "apple-silicon"
+        type: choice
+        options:
+          - "apple-silicon"
+          - "all-platforms"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  desktop:
+  apple-silicon:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: "macos-26"
+      target: "aarch64-apple-darwin"
+      build-args: "--target aarch64-apple-darwin"
+      asset-prefix: "nsm-flow-alpha"
+      upload-artifacts: true
+      sign-binaries: false
+
+  additional-platforms:
+    if: inputs.build_scope == 'all-platforms'
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-26"
-            args: "--target aarch64-apple-darwin"
-            target: "aarch64-apple-darwin"
           - platform: "macos-latest"
             args: "--target x86_64-apple-darwin"
             target: "x86_64-apple-darwin"

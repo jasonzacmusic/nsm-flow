@@ -12,6 +12,7 @@ const REFERENCE_LANG = "en";
 const ENGLISH_FALLBACK_KEYS = new Set([
   "sidebar.team",
   "settings.debug.recordingRetention.deleteImmediately",
+  "footer.getLatestVersion",
 ]);
 const ENGLISH_FALLBACK_PREFIXES = ["settings.team."];
 

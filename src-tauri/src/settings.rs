@@ -498,8 +498,14 @@ fn default_autostart_enabled() -> bool {
     false
 }
 
+/// On by default now that there is a real update feed to check against. While
+/// the feed did not exist this defaulted to off, which meant nobody could ever
+/// be told about a fix — the whole team would have had to be messaged by hand.
+/// The check only asks the feed what the newest version is; installing it is
+/// still an explicit click. Anyone who would rather not reach the network at
+/// all can turn it off in Settings.
 fn default_update_checks_enabled() -> bool {
-    false
+    true
 }
 
 fn default_show_whats_new_on_update() -> bool {

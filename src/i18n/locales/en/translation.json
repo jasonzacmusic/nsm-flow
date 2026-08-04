@@ -552,10 +552,10 @@
         "title": "App Data Directory",
         "description": "Location where NSM Flow stores its local data"
       },
-      "sourceCode": {
-        "title": "Source Code",
-        "description": "View source code and contribute",
-        "button": "View on GitHub"
+      "projectPage": {
+        "title": "Project Page",
+        "description": "Release notes, downloads and support for NSM Flow",
+        "button": "Open project page"
       },
       "supportDevelopment": {
         "title": "Built for Nathaniel",

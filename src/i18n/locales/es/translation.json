@@ -546,11 +546,6 @@
         "title": "Directorio de datos de la aplicación",
         "description": "Ubicación donde NSM Flow almacena sus datos"
       },
-      "sourceCode": {
-        "title": "Código fuente",
-        "description": "Ver código fuente y contribuir",
-        "button": "Ver en GitHub"
-      },
       "supportDevelopment": {
         "title": "Apoyar el desarrollo",
         "description": "Ayúdanos a continuar construyendo NSM Flow",

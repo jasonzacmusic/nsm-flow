@@ -68,8 +68,8 @@ export const AboutSettings: React.FC = () => {
         </SettingContainer>
 
         <SettingContainer
-          title={t("settings.about.sourceCode.title")}
-          description={t("settings.about.sourceCode.description")}
+          title={t("settings.about.projectPage.title")}
+          description={t("settings.about.projectPage.description")}
           grouped={true}
         >
           <Button
@@ -77,7 +77,7 @@ export const AboutSettings: React.FC = () => {
             size="md"
             onClick={() => openUrl(NSM_FLOW_PRODUCT_URL)}
           >
-            {t("settings.about.sourceCode.button")}
+            {t("settings.about.projectPage.button")}
           </Button>
         </SettingContainer>
 

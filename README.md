@@ -61,6 +61,8 @@ Windows installers are **not yet code-signed**, so SmartScreen shows
 "Windows protected your PC" the first time you run one. To install anyway:
 click **More info**, then **Run anyway**. Verify the download against the
 SHA-256 checksums above first if you want to be certain the file is intact.
+See [`WINDOWS_SIGNING.md`](WINDOWS_SIGNING.md) for what it would take to remove
+that warning.
 
 Use the Setup EXE unless you specifically need the MSI for managed deployment.
 The Setup EXE also offers a portable install that keeps all data in a `Data`
@@ -74,8 +76,10 @@ optional and is not required for local dictation.
 - **macOS** — signed and notarized. Verified end to end from a quarantined
   download: Gatekeeper reports `source=Notarized Developer ID`.
 - **Windows** — unsigned. Every user sees a SmartScreen warning until Nathaniel
-  buys a code-signing certificate. Nothing else about the Windows build is
-  blocked by this.
+  buys a code-signing certificate; see [`WINDOWS_SIGNING.md`](WINDOWS_SIGNING.md).
+  Nothing else about the Windows build is blocked by this.
+- **Automatic updates** — live. The app checks a signed feed and can install the
+  next version itself on both platforms.
 - **Google sign-in** — still needs a desktop OAuth client ID from Nathaniel.
   Dictation works fully without it.
 
@@ -100,11 +104,19 @@ PREBUILT_APP="nsm-flow-alpha-x86_64-apple-darwin/macos/NSM Flow.app" \
   scripts/release-macos.sh x86_64-apple-darwin
 scripts/stage-release-bundle.sh
 NSM_FLOW_ONLY=1 ~/Documents/Claude/labs-downloads/publish.sh
+scripts/publish-update-feed.sh
 ```
 
 `release-macos.sh` refuses to continue unless the signing identity and the
 notarytool keychain profile are both present, and it checks the Gatekeeper
 verdict at the end rather than assuming success.
+
+`publish-update-feed.sh` signs each artifact with the updater key and publishes
+the feed that installed copies check. The updater trusts a minisign signature,
+not the installer's own code signature, and the matching public key is pinned in
+`tauri.conf.json` — so a feed signed with any other key is rejected. The private
+key lives only in the macOS login Keychain (`nsm-pass get nsm-flow-updater-key`);
+**if it is lost, no existing installation can ever be updated again.**
 
 ## Development
 

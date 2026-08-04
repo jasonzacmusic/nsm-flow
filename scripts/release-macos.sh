@@ -13,10 +13,17 @@
 #   - a notarytool keychain profile (xcrun notarytool store-credentials)
 #
 # Usage:
-#   scripts/release-macos.sh                              # host architecture
-#   scripts/release-macos.sh x86_64-apple-darwin          # Intel
+#   # Normal release: sign the app CI already built (both architectures).
+#   gh run download <run-id> -R jasonzacmusic/nsm-flow
+#   PREBUILT_APP="nsm-flow-alpha-aarch64-apple-darwin/macos/NSM Flow.app" \
+#     scripts/release-macos.sh aarch64-apple-darwin
+#
+#   # Or build from source, for the host architecture only.
+#   scripts/release-macos.sh
 #
 # Env overrides:
+#   PREBUILT_APP    unsigned .app to sign instead of building from source
+#   VOLUME_ICON_DMG DMG to lift the volume icon from (defaults to Tauri's own)
 #   SIGN_IDENTITY   codesigning identity            (default: Developer ID for R3UNCZH45H)
 #   NOTARY_PROFILE  notarytool keychain profile     (default: shruti-notary)
 #   SKIP_NOTARIZE=1 sign only, skip Apple round-trip (for local smoke tests)
@@ -61,18 +68,47 @@ VERSION=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.jso
 echo "version    $VERSION"
 echo "target     $TARGET ($ARCH_LABEL)"
 
-# -------------------------------------------------------------------- build --
-# APPLE_SIGNING_IDENTITY is what makes tauri-bundler codesign with a real
-# identity. tauri.conf.json deliberately does NOT pin signingIdentity, because a
-# value there wins over this variable and would force ad-hoc signing again.
-say "Building (this takes a while)"
-export APPLE_SIGNING_IDENTITY="$SIGN_IDENTITY"
-export CMAKE_POLICY_VERSION_MINIMUM=3.5
-bun run tauri build --target "$TARGET"
+# ---------------------------------------------------------- build or adopt --
+# Two ways in. PREBUILT_APP takes an unsigned .app that CI already produced and
+# signs it here; that is the normal release path, because CI builds both Mac
+# architectures reliably and only this Mac holds the Developer ID. With no
+# PREBUILT_APP the script builds from source instead, which only works for the
+# architecture of the machine it runs on.
+WORK=""
+if [ -n "${PREBUILT_APP:-}" ]; then
+  [ -d "$PREBUILT_APP" ] || { echo "ERROR PREBUILT_APP is not a directory: $PREBUILT_APP" >&2; exit 1; }
+  say "Signing a prebuilt app"
+  echo "source     $PREBUILT_APP"
+  WORK="$(mktemp -d "${TMPDIR:-/tmp}/nsm-flow-sign.XXXXXX")"
+  APP="$WORK/NSM Flow.app"
+  ditto "$PREBUILT_APP" "$APP"
+  BUNDLE_DIR=""
 
-BUNDLE_DIR="$ROOT/src-tauri/target/$TARGET/release/bundle"
-APP="$BUNDLE_DIR/macos/NSM Flow.app"
-[ -d "$APP" ] || { echo "ERROR app bundle not produced at: $APP" >&2; exit 1; }
+  # Sign inside-out: nested code must be signed before the bundle that seals it,
+  # or the outer signature is invalidated the moment the inner one is replaced.
+  # The Intel build ships libonnxruntime in Contents/Frameworks.
+  while IFS= read -r nested; do
+    [ -n "$nested" ] || continue
+    echo "  nested   $(basename "$nested")"
+    codesign --force --timestamp --options runtime --sign "$SIGN_IDENTITY" "$nested"
+  done < <(find "$APP/Contents/Frameworks" -type f \( -name '*.dylib' -o -name '*.so' \) 2>/dev/null || true)
+
+  codesign --force --timestamp --options runtime \
+    --entitlements "$ROOT/src-tauri/Entitlements.plist" \
+    --sign "$SIGN_IDENTITY" "$APP"
+else
+  # APPLE_SIGNING_IDENTITY is what makes tauri-bundler codesign with a real
+  # identity. tauri.conf.json deliberately does NOT pin signingIdentity, because
+  # a value there wins over this variable and would force ad-hoc signing again.
+  say "Building from source (this takes a while)"
+  export APPLE_SIGNING_IDENTITY="$SIGN_IDENTITY"
+  export CMAKE_POLICY_VERSION_MINIMUM=3.5
+  bun run tauri build --target "$TARGET"
+
+  BUNDLE_DIR="$ROOT/src-tauri/target/$TARGET/release/bundle"
+  APP="$BUNDLE_DIR/macos/NSM Flow.app"
+  [ -d "$APP" ] || { echo "ERROR app bundle not produced at: $APP" >&2; exit 1; }
+fi
 
 # ------------------------------------------------------------------ verify ---
 say "Verifying signature"
@@ -86,6 +122,15 @@ echo "$SIG" | grep -q "flags=.*runtime" || {
 }
 echo "signature  OK  Developer ID + hardened runtime"
 
+# Guard against labelling an arm64 build "Intel" (or the reverse) when the app
+# came from CI and the target was passed by hand.
+EXPECT_ARCH=${TARGET%%-*}
+ACTUAL_ARCH=$(lipo -archs "$APP/Contents/MacOS/nsm-flow" 2>/dev/null || echo unknown)
+case "$EXPECT_ARCH:$ACTUAL_ARCH" in
+  aarch64:*arm64*|x86_64:*x86_64*) echo "arch       OK  $ACTUAL_ARCH" ;;
+  *) echo "ERROR target says $EXPECT_ARCH but the binary is $ACTUAL_ARCH" >&2; exit 1 ;;
+esac
+
 if [ "${SKIP_NOTARIZE:-0}" = "1" ]; then
   say "SKIP_NOTARIZE=1 — stopping before the Apple round-trip"
   echo "$APP"
@@ -98,7 +143,7 @@ fi
 # the copied app then needs a live Apple lookup to launch — which fails offline.
 say "Notarizing the app"
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/nsm-flow-notarize.XXXXXX")"
-trap 'rm -rf "$STAGE"' EXIT
+trap 'rm -rf "$STAGE" "${WORK:-/nonexistent}"' EXIT
 ditto -c -k --keepParent "$APP" "$STAGE/app.zip"
 xcrun notarytool submit "$STAGE/app.zip" --keychain-profile "$NOTARY_PROFILE" --wait
 xcrun stapler staple "$APP"
@@ -110,7 +155,7 @@ echo "app        OK  notarized + stapled"
 # it contains the pre-staple app, so it is discarded here.
 say "Building the disk image"
 DMG_NAME="NSM-Flow-mac-$ARCH_LABEL.dmg"
-DIST="$ROOT/dist-mac"
+DIST="$ROOT/dist-release"
 mkdir -p "$DIST"
 DMG="$DIST/$DMG_NAME"
 rm -f "$DMG"
@@ -119,9 +164,13 @@ IMG="$STAGE/image"
 mkdir -p "$IMG"
 ditto "$APP" "$IMG/NSM Flow.app"
 ln -s /Applications "$IMG/Applications"
-# Keep the volume icon Tauri's own DMG ships, when it produced one.
-TAURI_DMG=$(ls -t "$BUNDLE_DIR"/dmg/*.dmg 2>/dev/null | head -1 || true)
-if [ -n "$TAURI_DMG" ]; then
+# Keep the volume icon Tauri's own DMG ships, when it produced one. VOLUME_ICON
+# lets the CI path point at the icon inside the artifact's unsigned DMG.
+TAURI_DMG="${VOLUME_ICON_DMG:-}"
+if [ -z "$TAURI_DMG" ] && [ -n "$BUNDLE_DIR" ]; then
+  TAURI_DMG=$(ls -t "$BUNDLE_DIR"/dmg/*.dmg 2>/dev/null | head -1 || true)
+fi
+if [ -n "$TAURI_DMG" ] && [ -f "$TAURI_DMG" ]; then
   MNT="$STAGE/mnt"; mkdir -p "$MNT"
   hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$TAURI_DMG" >/dev/null
   [ -f "$MNT/.VolumeIcon.icns" ] && cp "$MNT/.VolumeIcon.icns" "$IMG/.VolumeIcon.icns"

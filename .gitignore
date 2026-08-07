@@ -46,3 +46,7 @@ __pycache__/
 
 # Nix build output
 result
+
+# Tauri update signing key — never commit
+*.key
+*.key.pub

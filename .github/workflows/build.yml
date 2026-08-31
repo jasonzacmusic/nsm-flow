@@ -561,7 +561,7 @@ jobs:
           path: |
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/dmg/*.dmg
             src-tauri/target/${{ inputs.target }}/${{ steps.build-profile.outputs.profile }}/bundle/macos/*.app
-          retention-days: 30
+          retention-days: 7
 
       - name: Install FUSE for AppImage processing
         if: contains(inputs.platform, 'ubuntu')
@@ -769,7 +769,7 @@ jobs:
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/deb/*.deb
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage
             src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/rpm/*.rpm
-          retention-days: 30
+          retention-days: 7
 
       # Run on Windows releases too; upload-artifacts only controls retention.
       - name: Audit Windows package runtime contents

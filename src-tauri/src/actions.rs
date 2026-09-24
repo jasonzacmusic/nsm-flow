@@ -43,6 +43,7 @@ struct RecordingErrorEvent {
 struct FinishGuard(AppHandle);
 impl Drop for FinishGuard {
     fn drop(&mut self) {
+        shortcut::unregister_cancel_shortcut(&self.0);
         if let Some(c) = self.0.try_state::<TranscriptionCoordinator>() {
             c.notify_processing_finished();
         }
@@ -66,6 +67,17 @@ const TRANSCRIPTION_FIELD: &str = "transcription";
 /// Strip invisible Unicode characters that some LLMs may insert
 fn strip_invisible_chars(s: &str) -> String {
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
+}
+
+/// Never paste provider JSON, commentary or an empty field as a transcript.
+fn structured_transcription(content: &str) -> Option<String> {
+    let json: serde_json::Value = serde_json::from_str(content).ok()?;
+    let text = strip_invisible_chars(json.get(TRANSCRIPTION_FIELD)?.as_str()?);
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
 }
 
 /// Build a system prompt from the user's prompt template.
@@ -118,6 +130,12 @@ async fn post_process_transcription(
     }
 
     let local_fallback = local_format(transcription, mode);
+
+    // Enforce consent here, not only in shortcut registration: normal dictation,
+    // retries and CLI callers all reach this provider boundary.
+    if !settings.post_process_enabled {
+        return Some(local_fallback);
+    }
 
     let provider = match settings.active_post_process_provider().cloned() {
         Some(provider) => provider,
@@ -267,32 +285,7 @@ async fn post_process_transcription(
         .await
         {
             Ok(Some(content)) => {
-                // Parse the JSON response to extract the transcription field
-                match serde_json::from_str::<serde_json::Value>(&content) {
-                    Ok(json) => {
-                        if let Some(transcription_value) =
-                            json.get(TRANSCRIPTION_FIELD).and_then(|t| t.as_str())
-                        {
-                            let result = strip_invisible_chars(transcription_value);
-                            debug!(
-                                "Structured output post-processing succeeded for provider '{}'. Output length: {} chars",
-                                provider.id,
-                                result.len()
-                            );
-                            return Some(result);
-                        } else {
-                            error!("Structured output response missing 'transcription' field");
-                            return Some(strip_invisible_chars(&content));
-                        }
-                    }
-                    Err(e) => {
-                        error!(
-                            "Failed to parse structured output JSON: {}. Returning raw content.",
-                            e
-                        );
-                        return Some(strip_invisible_chars(&content));
-                    }
-                }
+                return Some(structured_transcription(&content).unwrap_or(local_fallback));
             }
             Ok(None) => {
                 error!("LLM API response has no content");
@@ -624,8 +617,8 @@ impl ShortcutAction for TranscribeAction {
     }
 
     fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
-        // Unregister the cancel shortcut when transcription stops
-        shortcut::unregister_cancel_shortcut(app);
+        // Keep keyboard cancellation available while transcribing/polishing.
+        // FinishGuard releases it when the entire pipeline finishes.
 
         let stop_time = Instant::now();
         debug!("TranscribeAction::stop called for binding: {}", binding_id);
@@ -972,6 +965,50 @@ mod tests {
     fn non_blank_transcription_is_kept() {
         assert!(!is_blank_transcription("hello"));
         assert!(!is_blank_transcription("  hello  "));
+    }
+
+    #[test]
+    fn malformed_structured_output_cannot_replace_the_transcript() {
+        for response in [
+            "here is your text",
+            "{}",
+            r#"{"transcription":42}"#,
+            r#"{"transcription":"  "}"#,
+        ] {
+            assert_eq!(super::structured_transcription(response), None);
+        }
+        assert_eq!(
+            super::structured_transcription(r#"{"transcription":"Hello"}"#).as_deref(),
+            Some("Hello")
+        );
+    }
+
+    #[test]
+    fn disabled_post_processing_never_contacts_configured_provider() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut settings = crate::settings::AppSettings {
+            post_process_enabled: false,
+            post_process_provider_id: "custom".into(),
+            ..Default::default()
+        };
+        settings
+            .post_process_provider_mut("custom")
+            .unwrap()
+            .base_url = format!("http://{}", listener.local_addr().unwrap());
+        settings
+            .post_process_models
+            .insert("custom".into(), "test-model".into());
+        let output = tauri::async_runtime::block_on(super::post_process_transcription(
+            &settings,
+            "Hello new paragraph world",
+            crate::writing_mode::WritingMode::General,
+        ));
+        assert_eq!(output.as_deref(), Some("Hello\n\nworld"));
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
     }
 
     #[test]

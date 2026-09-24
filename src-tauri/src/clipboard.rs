@@ -53,49 +53,70 @@ fn paste_via_clipboard(
 
     std::thread::sleep(Duration::from_millis(paste_delay_ms));
 
-    // Send paste key combo
-    #[cfg(target_os = "linux")]
-    let key_combo_sent = try_send_key_combo_linux(paste_method)?;
+    run_with_clipboard_restore(
+        || {
+            // Send paste key combo
+            #[cfg(target_os = "linux")]
+            let key_combo_sent = try_send_key_combo_linux(paste_method)?;
 
-    #[cfg(not(target_os = "linux"))]
-    let key_combo_sent = false;
+            #[cfg(not(target_os = "linux"))]
+            let key_combo_sent = false;
 
-    // Fall back to enigo if no native tool handled it
-    if !key_combo_sent {
-        match paste_method {
-            PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo)?,
-            PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(enigo)?,
-            PasteMethod::ShiftInsert => input::send_paste_shift_insert(enigo)?,
-            _ => return Err("Invalid paste method for clipboard paste".into()),
-        }
-    }
+            // Fall back to enigo if no native tool handled it
+            if !key_combo_sent {
+                match paste_method {
+                    PasteMethod::CtrlV => input::send_paste_ctrl_v(enigo)?,
+                    PasteMethod::CtrlShiftV => input::send_paste_ctrl_shift_v(enigo)?,
+                    PasteMethod::ShiftInsert => input::send_paste_shift_insert(enigo)?,
+                    _ => return Err("Invalid paste method for clipboard paste".into()),
+                }
+            }
 
-    std::thread::sleep(Duration::from_millis(paste_delay_after_ms));
+            std::thread::sleep(Duration::from_millis(paste_delay_after_ms));
 
-    // Restore original clipboard content.
-    // Text takes priority so this path stays identical to the previous behavior;
-    // an image is only restored when the clipboard held no text at all, which is
-    // the case that used to silently wipe screenshots.
-    if let Some(clipboard_content) = saved_text {
-        // On Wayland, prefer wl-copy for better compatibility
-        #[cfg(target_os = "linux")]
-        if is_wayland() && is_wl_copy_available() {
-            let _ = write_clipboard_via_wl_copy(&clipboard_content);
-        } else {
-            let _ = clipboard.write_text(&clipboard_content);
-        }
+            Ok(())
+        },
+        || {
+            // Restore original clipboard content.
+            // Text takes priority so this path stays identical to the previous behavior;
+            // an image is only restored when the clipboard held no text at all, which is
+            // the case that used to silently wipe screenshots.
+            // Do not overwrite something the user copied while the paste was running.
+            if clipboard.read_text().ok().as_deref() != Some(text) {
+                return;
+            }
+            if let Some(clipboard_content) = saved_text {
+                // On Wayland, prefer wl-copy for better compatibility
+                #[cfg(target_os = "linux")]
+                if is_wayland() && is_wl_copy_available() {
+                    let _ = write_clipboard_via_wl_copy(&clipboard_content);
+                } else {
+                    let _ = clipboard.write_text(&clipboard_content);
+                }
 
-        #[cfg(not(target_os = "linux"))]
-        let _ = clipboard.write_text(&clipboard_content);
-    } else if let Some(image) = saved_image {
-        info!("Restoring image to clipboard");
-        let _ = clipboard.write_image(&image);
-    } else {
-        // Nothing was there to begin with — don't leave the transcription behind.
-        let _ = clipboard.clear();
-    }
+                #[cfg(not(target_os = "linux"))]
+                let _ = clipboard.write_text(&clipboard_content);
+            } else if let Some(image) = saved_image {
+                info!("Restoring image to clipboard");
+                let _ = clipboard.write_image(&image);
+            } else {
+                // Nothing was there to begin with — don't leave the transcription behind.
+                let _ = clipboard.clear();
+            }
+        },
+    )?;
 
     Ok(())
+}
+
+/// Restore even when synthetic input fails after replacing the clipboard.
+fn run_with_clipboard_restore<T>(
+    paste: impl FnOnce() -> Result<T, String>,
+    restore: impl FnOnce(),
+) -> Result<T, String> {
+    let result = paste();
+    restore();
+    result
 }
 
 /// Attempts to send a key combination using Linux-native tools.
@@ -687,6 +708,20 @@ pub fn paste(text: String, app_handle: AppHandle) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn failed_paste_still_restores_the_previous_clipboard() {
+        let clipboard = std::cell::RefCell::new("original".to_string());
+        let result: Result<(), String> = run_with_clipboard_restore(
+            || {
+                *clipboard.borrow_mut() = "sensitive dictation".into();
+                Err("synthetic key denied".into())
+            },
+            || *clipboard.borrow_mut() = "original".into(),
+        );
+        assert_eq!(result, Err("synthetic key denied".into()));
+        assert_eq!(&*clipboard.borrow(), "original");
+    }
 
     #[test]
     fn auto_submit_requires_setting_enabled() {

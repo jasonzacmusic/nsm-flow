@@ -176,6 +176,59 @@ jobs:
         if: contains(inputs.platform, 'windows') && inputs.sign-binaries && steps.cache-tsc.outputs.cache-hit != 'true'
         run: cargo install trusted-signing-cli@${{ env.TSC_VERSION }}
 
+      # tauri-bundler only signs Windows binaries when the config gives it a
+      # signCommand, and nothing here ever set one. Installing a signing CLI and
+      # exporting credentials does nothing on its own: the build succeeds and
+      # ships unsigned installers, which is the worst possible outcome because
+      # it looks like it worked.
+      #
+      # The command comes from a repository variable rather than being hardcoded,
+      # because the signing provider is not settled. Azure Trusted Signing (which
+      # the trusted-signing-cli steps above were written for) only issues public
+      # trust certificates to organisations in the US, Canada, the EU, the UK,
+      # Australia, New Zealand, Japan, South Korea, Singapore, Switzerland,
+      # Norway and Israel — India is not on that list, so Nathaniel cannot use it.
+      # Whatever CA is chosen, put its command here and everything else works.
+      #
+      # Use %1 where the file path goes, e.g.
+      #   trusted-signing-cli -e <endpoint> -a <account> -c <profile> %1
+      #   CodeSignTool sign -credential_id=... -username=... -input_file_path=%1
+      #   smctl sign --keypair-alias=<alias> --input %1
+      #
+      # Generated rather than committed so unsigned builds, which have no signing
+      # tool on PATH, keep working untouched.
+      - name: Generate the Windows signing config overlay
+        if: contains(inputs.platform, 'windows') && inputs.sign-binaries
+        shell: bash
+        env:
+          WINDOWS_SIGN_COMMAND: ${{ vars.WINDOWS_SIGN_COMMAND }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WINDOWS_SIGN_COMMAND:-}" ]; then
+            echo "::error::sign-binaries is true but the WINDOWS_SIGN_COMMAND repository variable is unset."
+            echo "Set it under Settings → Secrets and variables → Actions → Variables,"
+            echo "using %1 as the placeholder for the file to sign."
+            exit 1
+          fi
+          case "$WINDOWS_SIGN_COMMAND" in
+            *%1*) ;;
+            *) echo "::error::WINDOWS_SIGN_COMMAND must contain %1, the file to sign."; exit 1 ;;
+          esac
+          python3 - <<'PY'
+          import json, os
+          json.dump(
+              {"bundle": {"windows": {"signCommand": os.environ["WINDOWS_SIGN_COMMAND"]}}},
+              open("src-tauri/tauri.signing.conf.json", "w"),
+              indent=2,
+          )
+          PY
+          cat src-tauri/tauri.signing.conf.json
+
+      - name: Point the build at the signing overlay
+        if: contains(inputs.platform, 'windows') && inputs.sign-binaries
+        shell: bash
+        run: echo "NSM_EXTRA_BUILD_ARGS=--config src-tauri/tauri.signing.conf.json" >> "$GITHUB_ENV"
+
       - name: Prepare Vulkan SDK for Ubuntu 24.04
         if: contains(inputs.platform, 'ubuntu-24.04') && !contains(inputs.platform, 'arm')
         run: |
@@ -529,7 +582,50 @@ jobs:
           releaseName: ${{ inputs.release-id && format('v{0}', steps.get-version.outputs.version) || '' }}
           releaseId: ${{ inputs.release-id }}
           assetNamePattern: ${{ steps.patch-release-name.outputs.platform }}
-          args: ${{ inputs.build-args }}
+          args: ${{ inputs.build-args }} ${{ env.NSM_EXTRA_BUILD_ARGS }}
+
+      # "Signed" has to mean signed. Read the PE certificate table directly
+      # rather than trusting that the sign step ran — a missing signCommand, a
+      # bad Azure profile, or a silently skipped signtool all look like success
+      # otherwise, and the failure only surfaces on a user's machine.
+      - name: Verify the Windows installers are actually signed
+        if: contains(inputs.platform, 'windows') && inputs.sign-binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import glob, struct, sys
+
+          def has_authenticode(path):
+              data = open(path, "rb").read()
+              if data[:2] != b"MZ":
+                  return None  # MSI is an OLE container, not a PE
+              pe = struct.unpack_from("<I", data, 0x3C)[0]
+              opt = pe + 24
+              magic = struct.unpack_from("<H", data, opt)[0]
+              base = opt + (112 if magic == 0x20B else 96)
+              _, size = struct.unpack_from("<II", data, base + 4 * 8)
+              return size > 0
+
+          failed = []
+          checked = 0
+          for pattern in ("src-tauri/target/**/bundle/nsis/*.exe",
+                          "src-tauri/target/**/bundle/msi/*.msi"):
+              for f in glob.glob(pattern, recursive=True):
+                  signed = has_authenticode(f)
+                  if signed is None:
+                      print(f"skip (not a PE)  {f}")
+                      continue
+                  checked += 1
+                  print(("SIGNED   " if signed else "UNSIGNED ") + f)
+                  if not signed:
+                      failed.append(f)
+
+          if checked == 0:
+              sys.exit("No Windows installers found to verify")
+          if failed:
+              sys.exit("Signing was requested but these are unsigned: " + ", ".join(failed))
+          PY
 
       - name: Verify macOS dylib bundling
         if: inputs.target == 'x86_64-apple-darwin'

@@ -546,11 +546,6 @@
         "title": "Thư mục dữ liệu ứng dụng",
         "description": "Vị trí NSM Flow lưu trữ dữ liệu"
       },
-      "sourceCode": {
-        "title": "Mã nguồn",
-        "description": "Xem mã nguồn và đóng góp",
-        "button": "Xem trên GitHub"
-      },
       "supportDevelopment": {
         "title": "Hỗ trợ phát triển",
         "description": "Giúp chúng tôi tiếp tục xây dựng NSM Flow",

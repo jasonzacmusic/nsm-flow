@@ -552,10 +552,10 @@
         "title": "App Data Directory",
         "description": "Location where NSM Flow stores its local data"
       },
-      "sourceCode": {
-        "title": "Source Code",
-        "description": "View source code and contribute",
-        "button": "View on GitHub"
+      "projectPage": {
+        "title": "Project Page",
+        "description": "Release notes, downloads and support for NSM Flow",
+        "button": "Open project page"
       },
       "supportDevelopment": {
         "title": "Built for Nathaniel",
@@ -601,9 +601,10 @@
     "installing": "Installing...",
     "preparing": "Preparing...",
     "checkForUpdates": "Check for updates",
+    "getLatestVersion": "Get the latest version",
     "portableUpdateTitle": "Manual update required",
-    "portableUpdateMessage": "Portable installs cannot be updated automatically. To update: download the latest NSIS installer from GitHub Releases, install it to the same folder, then copy your Data/ folder (settings, models, recordings) from the old version to the new one.",
-    "portableUpdateButton": "Open GitHub Releases"
+    "portableUpdateMessage": "Portable installs cannot be updated automatically. To update: download the latest NSM Flow installer from the Nathaniel Labs downloads page, install it to the same folder, then copy your Data/ folder (settings, models, recordings) from the old version to the new one.",
+    "portableUpdateButton": "Open downloads page"
   },
   "whatsNew": {
     "title": "New in NSM Flow v{{version}}"

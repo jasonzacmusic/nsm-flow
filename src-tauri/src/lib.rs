@@ -172,6 +172,21 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     let history_manager =
         Arc::new(HistoryManager::new(app_handle).expect("Failed to initialize history manager"));
 
+    // The asset protocol exists for exactly one thing: playing back a stored
+    // recording in History. The static scope in tauri.conf.json covers the
+    // normal install ($APPDATA); a portable install keeps its recordings next
+    // to the executable instead, so grant that directory here rather than
+    // widening the static scope to the whole filesystem.
+    if let Err(e) = app_handle
+        .asset_protocol_scope()
+        .allow_directory(history_manager.recordings_dir(), false)
+    {
+        log::warn!(
+            "Could not grant asset access to the recordings directory ({}): history playback may not work",
+            e
+        );
+    }
+
     // Initialize the transcribe-cpp native backend (logging + backend module
     // registration) once, before any whisper model is loaded.
     managers::transcription::init_transcribe_backend();

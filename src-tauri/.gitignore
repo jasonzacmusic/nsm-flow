@@ -11,3 +11,4 @@
 # tauri.windows.conf.json on Windows, into /usr/lib/Handy (deb/rpm) via
 # tauri.conf.json on Linux.
 /transcribe-libs/
+src-tauri/tauri.signing.conf.json

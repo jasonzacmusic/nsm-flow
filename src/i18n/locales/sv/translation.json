@@ -546,11 +546,6 @@
         "title": "Mapp för appdata",
         "description": "Plats där NSM Flow lagrar sina data"
       },
-      "sourceCode": {
-        "title": "Källkod",
-        "description": "Visa källkod och bidra",
-        "button": "Visa på GitHub"
-      },
       "supportDevelopment": {
         "title": "Stöd utvecklingen",
         "description": "Hjälp oss att fortsätta bygga NSM Flow",

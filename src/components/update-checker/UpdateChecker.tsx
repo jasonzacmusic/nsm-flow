@@ -7,6 +7,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { ProgressBar } from "../shared";
 import { useSettings } from "../../hooks/useSettings";
 import { commands } from "../../bindings";
+import { NSM_FLOW_DOWNLOADS_URL } from "../../lib/constants/links";
 
 interface UpdateCheckerProps {
   className?: string;
@@ -22,6 +23,11 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const [showUpToDate, setShowUpToDate] = useState(false);
   const [showPortableUpdateDialog, setShowPortableUpdateDialog] =
     useState(false);
+  // `check()` throws when this build has no updater endpoint configured (alpha
+  // builds ship without one). Without this the footer offers "Check for
+  // updates" forever and every click fails silently, so fall back to sending
+  // people to the page that actually has the newest installer.
+  const [updaterUnavailable, setUpdaterUnavailable] = useState(false);
 
   const { settings, isLoading } = useSettings();
   const settingsLoaded = !isLoading && settings !== null;
@@ -68,6 +74,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
     try {
       setIsChecking(true);
       const update = await check();
+      setUpdaterUnavailable(false);
 
       if (update) {
         setUpdateAvailable(true);
@@ -87,6 +94,9 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
       }
     } catch (error) {
       console.error("Failed to check for updates:", error);
+      setUpdaterUnavailable(true);
+      setUpdateAvailable(false);
+      setShowUpToDate(false);
     } finally {
       setIsChecking(false);
       isManualCheckRef.current = false;
@@ -165,13 +175,19 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
           : t("footer.preparing");
     }
     if (isChecking) return t("footer.checkingUpdates");
+    if (updaterUnavailable) return t("footer.getLatestVersion");
     if (showUpToDate) return t("footer.upToDate");
     if (updateAvailable) return t("footer.updateAvailableShort");
     return t("footer.checkForUpdates");
   };
 
+  const openDownloadsPage = () => {
+    void openUrl(NSM_FLOW_DOWNLOADS_URL);
+  };
+
   const getUpdateStatusAction = () => {
     if (!updateChecksEnabled) return undefined;
+    if (updaterUnavailable && !isInstalling) return openDownloadsPage;
     if (updateAvailable && !isInstalling) return installUpdate;
     if (!isChecking && !isInstalling && !updateAvailable)
       return handleManualUpdateCheck;
@@ -180,7 +196,8 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
 
   const isUpdateDisabled = !updateChecksEnabled || isChecking || isInstalling;
   const isUpdateClickable =
-    !isUpdateDisabled && (updateAvailable || (!isChecking && !showUpToDate));
+    !isUpdateDisabled &&
+    (updateAvailable || updaterUnavailable || (!isChecking && !showUpToDate));
 
   return (
     <>
@@ -203,9 +220,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
               <button
                 className="px-3 py-1.5 text-sm rounded bg-logo-primary text-white hover:bg-logo-primary/80 transition-colors"
                 onClick={() => {
-                  openUrl(
-                    "https://github.com/jasonzacmusic/nsm-flow/releases/latest",
-                  );
+                  openUrl(NSM_FLOW_DOWNLOADS_URL);
                   setShowPortableUpdateDialog(false);
                 }}
               >

@@ -10,6 +10,10 @@ import { AppLanguageSelector } from "../AppLanguageSelector";
 import { ShowWhatsNewOnUpdate } from "../ShowWhatsNewOnUpdate";
 import { ThemeSelector } from "../ThemeSelector";
 import { LogDirectory } from "../debug";
+import {
+  NSM_FLOW_PRODUCT_URL,
+  NSM_SITE_URL,
+} from "../../../lib/constants/links";
 
 export const AboutSettings: React.FC = () => {
   const { t } = useTranslation();
@@ -31,7 +35,7 @@ export const AboutSettings: React.FC = () => {
 
   const handleDonateClick = async () => {
     try {
-      await openUrl("https://nathanielschool.com");
+      await openUrl(NSM_SITE_URL);
     } catch (error) {
       console.error("Failed to open donate link:", error);
     }
@@ -64,16 +68,16 @@ export const AboutSettings: React.FC = () => {
         </SettingContainer>
 
         <SettingContainer
-          title={t("settings.about.sourceCode.title")}
-          description={t("settings.about.sourceCode.description")}
+          title={t("settings.about.projectPage.title")}
+          description={t("settings.about.projectPage.description")}
           grouped={true}
         >
           <Button
             variant="secondary"
             size="md"
-            onClick={() => openUrl("https://github.com/jasonzacmusic/nsm-flow")}
+            onClick={() => openUrl(NSM_FLOW_PRODUCT_URL)}
           >
-            {t("settings.about.sourceCode.button")}
+            {t("settings.about.projectPage.button")}
           </Button>
         </SettingContainer>
 

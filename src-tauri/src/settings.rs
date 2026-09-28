@@ -471,7 +471,7 @@ fn default_model() -> String {
     "".to_string()
 }
 
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 2;
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 3;
 const INDIA_CORE_LEXICON: &str = include_str!("../resources/lexicons/india-core.txt");
 
 fn default_settings_schema_version() -> u32 {
@@ -498,8 +498,14 @@ fn default_autostart_enabled() -> bool {
     false
 }
 
+/// On by default now that there is a real update feed to check against. While
+/// the feed did not exist this defaulted to off, which meant nobody could ever
+/// be told about a fix — the whole team would have had to be messaged by hand.
+/// The check only asks the feed what the newest version is; installing it is
+/// still an explicit click. Anyone who would rather not reach the network at
+/// all can turn it off in Settings.
 fn default_update_checks_enabled() -> bool {
-    false
+    true
 }
 
 fn default_show_whats_new_on_update() -> bool {
@@ -1233,6 +1239,17 @@ fn apply_settings_migrations(
         );
         updated = true;
     }
+    if stored_schema_version < 3 {
+        // Update checking used to default to off because there was no update
+        // feed to check — the setting was stored as `false` on every existing
+        // install. Leaving it would opt exactly the people who already have NSM
+        // Flow out of the mechanism built to reach them, so it is turned on once
+        // here. Anyone who then turns it off keeps that choice: this runs only
+        // while the stored schema version is older than 3.
+        settings.update_checks_enabled = true;
+        updated = true;
+    }
+
     if stored_schema_version < u64::from(CURRENT_SETTINGS_SCHEMA_VERSION) {
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
         updated = true;
@@ -1506,6 +1523,47 @@ mod tests {
         // A migrated current-format store must not be rewritten on every read.
         let migrated = serde_json::to_value(&settings).expect("migrated settings serialize");
         assert!(!apply_settings_migrations(&mut settings, &migrated));
+    }
+
+    /// Existing installs stored `update_checks_enabled: false`, because there
+    /// was no update feed to check when they were written. Without the schema-3
+    /// migration they would stay opted out of the very mechanism added to reach
+    /// them, and would have to be told to turn it on by hand.
+    #[test]
+    fn schema_3_turns_on_update_checks_for_existing_installs() {
+        let mut stored = default_settings_json();
+        let map = stored.as_object_mut().unwrap();
+        map.insert("settings_schema_version".into(), serde_json::json!(2));
+        map.insert("update_checks_enabled".into(), serde_json::json!(false));
+
+        let mut settings: AppSettings =
+            serde_json::from_value(stored.clone()).expect("fixture parses");
+        assert!(!settings.update_checks_enabled);
+
+        assert!(apply_settings_migrations(&mut settings, &stored));
+        assert!(settings.update_checks_enabled);
+        assert_eq!(
+            settings.settings_schema_version,
+            CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+    }
+
+    /// The migration is one-time. Someone who deliberately turns update checks
+    /// off after migrating must not have them switched back on at every launch.
+    #[test]
+    fn schema_3_does_not_re_enable_update_checks_after_migrating() {
+        let mut stored = default_settings_json();
+        let map = stored.as_object_mut().unwrap();
+        map.insert(
+            "settings_schema_version".into(),
+            serde_json::json!(CURRENT_SETTINGS_SCHEMA_VERSION),
+        );
+        map.insert("update_checks_enabled".into(), serde_json::json!(false));
+
+        let mut settings: AppSettings =
+            serde_json::from_value(stored.clone()).expect("fixture parses");
+        apply_settings_migrations(&mut settings, &stored);
+        assert!(!settings.update_checks_enabled);
     }
 
     #[test]

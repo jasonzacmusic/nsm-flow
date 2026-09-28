@@ -48,10 +48,40 @@ pub fn init_shortcuts(app: &AppHandle) {
                 // Update settings to persist the fallback so we don't retry HandyKeys on next launch
                 let mut settings = settings::get_settings(app);
                 settings.keyboard_implementation = KeyboardImplementation::Tauri;
+                migrate_bindings_for_tauri(&mut settings);
                 settings::write_settings(app, settings);
 
                 tauri_impl::init_shortcuts(app);
             }
+        }
+    }
+}
+
+/// What a binding becomes when it cannot survive the move to Tauri.
+///
+/// Tauri's global-shortcut plugin needs at least one non-modifier key and has
+/// no concept of the `fn` key, which is the macOS default. Falling back to
+/// Tauri without touching the bindings leaves push-to-talk permanently dead:
+/// registration fails, and because the fallback is persisted the app never
+/// retries handy-keys to fix itself. Prefer a working shortcut the user can
+/// then change over a shortcut that silently does nothing.
+const TAURI_FALLBACK_BINDING: &str = "option+space";
+
+/// Rewrite any binding the Tauri backend cannot register. Only bindings that
+/// actually fail validation are touched, so a user's own choice survives
+/// whenever Tauri can honour it.
+fn migrate_bindings_for_tauri(settings: &mut settings::AppSettings) {
+    for (id, binding) in settings.bindings.iter_mut() {
+        if id.as_str() == "cancel" {
+            continue;
+        }
+        if tauri_impl::validate_shortcut(&binding.current_binding).is_err() {
+            warn!(
+                "Shortcut '{}' for '{}' cannot be registered by the Tauri backend; falling back to '{}'",
+                binding.current_binding, id, TAURI_FALLBACK_BINDING
+            );
+            binding.current_binding = TAURI_FALLBACK_BINDING.to_string();
+            binding.default_binding = TAURI_FALLBACK_BINDING.to_string();
         }
     }
 }
@@ -1279,4 +1309,46 @@ pub async fn get_available_accelerators() -> crate::managers::transcription::Ava
     tauri::async_runtime::spawn_blocking(crate::managers::transcription::get_available_accelerators)
         .await
         .expect("get_available_accelerators panicked")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The macOS default is `fn`, which the Tauri backend cannot register. If
+    /// the fallback left it in place, push-to-talk would be dead and — because
+    /// the fallback is persisted — would never repair itself.
+    #[test]
+    fn migrates_bindings_tauri_cannot_register() {
+        let mut settings = settings::get_default_settings();
+        settings
+            .bindings
+            .get_mut("transcribe")
+            .expect("transcribe binding")
+            .current_binding = "fn".to_string();
+
+        migrate_bindings_for_tauri(&mut settings);
+
+        let transcribe = &settings.bindings["transcribe"];
+        assert_eq!(transcribe.current_binding, TAURI_FALLBACK_BINDING);
+        assert!(tauri_impl::validate_shortcut(&transcribe.current_binding).is_ok());
+    }
+
+    /// A shortcut Tauri can honour is the user's choice and must survive.
+    #[test]
+    fn leaves_registrable_bindings_alone() {
+        let mut settings = settings::get_default_settings();
+        settings
+            .bindings
+            .get_mut("transcribe")
+            .expect("transcribe binding")
+            .current_binding = "ctrl+shift+k".to_string();
+
+        migrate_bindings_for_tauri(&mut settings);
+
+        assert_eq!(
+            settings.bindings["transcribe"].current_binding,
+            "ctrl+shift+k"
+        );
+    }
 }

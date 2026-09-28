@@ -12,8 +12,16 @@ const REFERENCE_LANG = "en";
 const ENGLISH_FALLBACK_KEYS = new Set([
   "sidebar.team",
   "settings.debug.recordingRetention.deleteImmediately",
+  "footer.getLatestVersion",
 ]);
-const ENGLISH_FALLBACK_PREFIXES = ["settings.team."];
+// `settings.about.projectPage.*` replaced a "Source Code" block whose existing
+// translations promised a public repository that does not exist. Keeping those
+// strings would have kept the promise in 23 languages, so they were dropped in
+// favour of the English fallback until a native speaker reviews new wording.
+const ENGLISH_FALLBACK_PREFIXES = [
+  "settings.team.",
+  "settings.about.projectPage.",
+];
 
 type TranslationData = Record<string, unknown>;
 

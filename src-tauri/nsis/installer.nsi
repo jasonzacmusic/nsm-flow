@@ -4,6 +4,7 @@
 ;
 ; When upgrading Tauri, diff this file against the new upstream template and
 ; merge changes while preserving the portable sections.
+; Running-app check updated for tauri-cli-v2.12.1; never force-close an app.
 
 Unicode true
 ManifestDPIAware true
@@ -28,6 +29,7 @@ ManifestDPIAwareness PerMonitorV2
 !include "FileAssociation.nsh"
 !include "Win\COM.nsh"
 !include "Win\Propkey.nsh"
+!include "Win\RestartManager.nsh"
 !include "StrFunc.nsh"
 ${StrCase}
 ${StrLoc}
@@ -74,6 +76,41 @@ Var UpdateMode
 Var NoShortcutMode
 Var WixMode
 Var OldMainBinaryName
+
+; Use Restart Manager to check the exact installed executable. Abort before
+; changing files when it is in use; silent updates must not force-close it.
+!macro NSMRequireAppClosed executablePath productName
+  !define NSMClosedCheckID ${__LINE__}
+  IfFileExists "${executablePath}" 0 nsm_closed_done_${NSMClosedCheckID}
+  nsis_tauri_utils::StrReplace "$(appRunning)" "{{product_name}}" "${productName}"
+  Pop $R1
+  !insertmacro RestartManager_StartSession $R0
+  ${If} $R0 == ""
+    Goto nsm_closed_block_${NSMClosedCheckID}
+  ${EndIf}
+  !insertmacro RestartManager_RegisterFile $R0 "${executablePath}"
+  ${If} $0 != 0
+    !insertmacro RestartManager_EndSession $R0
+    Goto nsm_closed_block_${NSMClosedCheckID}
+  ${EndIf}
+  System::Call 'RSTRTMGR::RmGetList(p R0, *i .r1, *i .r2, p 0, *i .r3) i .r0'
+  StrCpy $R4 $0
+  !insertmacro RestartManager_EndSession $R0
+  ${If} $R4 != 0
+    Goto nsm_closed_block_${NSMClosedCheckID}
+  ${EndIf}
+  Goto nsm_closed_done_${NSMClosedCheckID}
+  nsm_closed_block_${NSMClosedCheckID}:
+    ${If} $PassiveMode != 1
+      IfSilent nsm_closed_abort_${NSMClosedCheckID} 0
+      MessageBox MB_ICONEXCLAMATION|MB_OK $R1
+    ${EndIf}
+  nsm_closed_abort_${NSMClosedCheckID}:
+    SetErrorLevel 2
+    Abort $R1
+  nsm_closed_done_${NSMClosedCheckID}:
+  !undef NSMClosedCheckID
+!macroend
 
 ; --- PORTABLE MODE ---
 Var PortableMode
@@ -736,7 +773,7 @@ Section Install
     !insertmacro NSIS_HOOK_PREINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro NSMRequireAppClosed "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Copy main executable
   File "${MAINBINARYSRCPATH}"
@@ -890,7 +927,7 @@ Section Uninstall
     !insertmacro NSIS_HOOK_PREUNINSTALL
   !endif
 
-  !insertmacro CheckIfAppIsRunning "${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
+  !insertmacro NSMRequireAppClosed "$INSTDIR\${MAINBINARYNAME}.exe" "${PRODUCTNAME}"
 
   ; Delete the app directory and its content from disk
   ; Copy main executable

@@ -606,6 +606,7 @@
   "footer": {
     "checkingUpdates": "Checking for updates...",
     "updateAvailableShort": "Update available",
+    "updateAndRestart": "Update and restart",
     "upToDate": "Up to date",
     "updateCheckingDisabled": "Update Checking Disabled",
     "downloading": "Downloading... {{progress}}%",

@@ -22,6 +22,20 @@ pub fn is_portable() -> bool {
 
 #[tauri::command]
 #[specta::specta]
+pub fn begin_application_update(app: AppHandle) -> Result<(), String> {
+    app.state::<crate::transcription_coordinator::TranscriptionCoordinator>()
+        .begin_update()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn end_application_update(app: AppHandle) -> Result<(), String> {
+    app.state::<crate::transcription_coordinator::TranscriptionCoordinator>()
+        .end_update()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn get_app_dir_path(app: AppHandle) -> Result<String, String> {
     let app_data_dir = crate::portable::app_data_dir(&app)
         .map_err(|e| format!("Failed to get app data directory: {}", e))?;

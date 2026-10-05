@@ -692,6 +692,8 @@ pub fn run(cli_args: CliArgs) {
             show_main_window_command,
             commands::cancel_operation,
             commands::is_portable,
+            commands::begin_application_update,
+            commands::end_application_update,
             commands::get_app_dir_path,
             commands::get_app_settings,
             commands::get_default_settings,

@@ -134,8 +134,7 @@ NOTES=$(VERSION="$VERSION" python3 - <<'PYNOTES'
 import os, pathlib
 notes = pathlib.Path("src/content/release-notes") / (os.environ["VERSION"] + ".md")
 if not notes.is_file(): raise SystemExit("Missing release notes for exact app version")
-heads = [line[3:].strip() for line in notes.read_text().splitlines() if line.startswith("## ")]
-print("; ".join(heads[:4]))
+print(notes.read_text())
 PYNOTES
 )
 

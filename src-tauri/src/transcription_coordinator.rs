@@ -35,6 +35,8 @@ enum Command {
         recording_was_active: bool,
     },
     ProcessingFinished,
+    BeginUpdate(Sender<bool>),
+    EndUpdate,
 }
 
 /// Pipeline lifecycle, owned exclusively by the coordinator thread.
@@ -42,6 +44,23 @@ enum Stage {
     Idle,
     Recording(String), // binding_id
     Processing,
+}
+
+#[derive(Default)]
+struct UpdateReservation(bool);
+
+impl UpdateReservation {
+    fn reserve(&mut self, stage: &Stage) -> bool {
+        if self.0 || !matches!(stage, Stage::Idle) {
+            return false;
+        }
+        self.0 = true;
+        true
+    }
+
+    fn release(&mut self) {
+        self.0 = false;
+    }
 }
 
 fn classify_ptt_event(
@@ -88,6 +107,7 @@ impl TranscriptionCoordinator {
                 let mut stage = Stage::Idle;
                 let mut last_press: Option<Instant> = None;
                 let mut pending_release: Option<PendingRelease> = None;
+                let mut update = UpdateReservation::default();
 
                 loop {
                     let cmd = if let Some(pending) = &pending_release {
@@ -125,6 +145,10 @@ impl TranscriptionCoordinator {
                             is_pressed,
                             push_to_talk,
                         } => {
+                            if update.0 {
+                                debug!("Ignoring dictation input while an approved update is installing");
+                                continue;
+                            }
                             let pending_release_binding = pending_release
                                 .as_ref()
                                 .map(|pending| pending.binding_id.as_str());
@@ -202,6 +226,13 @@ impl TranscriptionCoordinator {
                         Command::ProcessingFinished => {
                             stage = Stage::Idle;
                         }
+                        Command::BeginUpdate(reply) => {
+                            let reserved = update.reserve(&stage);
+                            if reply.send(reserved).is_err() && reserved {
+                                update.release();
+                            }
+                        }
+                        Command::EndUpdate => update.release(),
                     }
                 }
                 debug!("Transcription coordinator exited");
@@ -212,6 +243,29 @@ impl TranscriptionCoordinator {
         });
 
         Self { tx }
+    }
+
+    /// Reserve idle dictation until the approved installation finishes. The
+    /// same queue handles shortcuts, so a late keypress cannot race the check.
+    pub fn begin_update(&self) -> Result<(), String> {
+        let (reply, result) = mpsc::channel();
+        self.tx.send(Command::BeginUpdate(reply)).map_err(|_| {
+            "Dictation is unavailable; restart NSM Flow before updating.".to_string()
+        })?;
+        match result.recv_timeout(Duration::from_secs(5)) {
+            Ok(true) => Ok(()),
+            Ok(false) => Err("Finish your recording or transcription before updating.".to_string()),
+            Err(_) => {
+                let _ = self.end_update();
+                Err("Could not prepare the update. Please try again.".to_string())
+            }
+        }
+    }
+
+    pub fn end_update(&self) -> Result<(), String> {
+        self.tx
+            .send(Command::EndUpdate)
+            .map_err(|_| "Could not release the update reservation.".to_string())
     }
 
     /// Send a keyboard/signal input event for a transcribe binding.
@@ -283,6 +337,25 @@ fn stop(app: &AppHandle, stage: &mut Stage, binding_id: &str, hotkey_string: &st
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn update_cannot_reserve_a_recording_or_processing_session() {
+        let mut update = super::UpdateReservation::default();
+        assert!(!update.reserve(&super::Stage::Recording("transcribe".into())));
+        assert!(!update.reserve(&super::Stage::Processing));
+        assert!(update.reserve(&super::Stage::Idle));
+    }
+
+    #[test]
+    fn update_blocks_late_dictation_until_failure_releases_it() {
+        let mut update = super::UpdateReservation::default();
+        assert!(update.reserve(&super::Stage::Idle));
+        assert!(update.0);
+        assert!(!update.reserve(&super::Stage::Idle));
+        update.release();
+        assert!(!update.0);
+        assert!(update.reserve(&super::Stage::Idle));
+    }
+
     use super::*;
 
     #[test]

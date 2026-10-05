@@ -9,6 +9,7 @@ mod catalog;
 pub mod cli;
 mod clipboard;
 mod commands;
+mod credentials;
 mod helpers;
 mod input;
 mod llm_client;
@@ -199,6 +200,17 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     app_handle.manage(model_manager.clone());
     app_handle.manage(transcription_manager.clone());
     app_handle.manage(history_manager.clone());
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+            let manager = history_manager.clone();
+            let result =
+                tauri::async_runtime::spawn_blocking(move || manager.cleanup_old_entries()).await;
+            if !matches!(result, Ok(Ok(()))) {
+                log::warn!("Scheduled history retention failed; it will retry");
+            }
+        }
+    });
     app_handle.manage(tray::CurrentTrayIconState::new());
 
     // Note: Shortcuts are NOT initialized here.
@@ -730,6 +742,8 @@ pub fn run(cli_args: CliArgs) {
             commands::history::retry_history_entry_transcription,
             commands::history::update_history_limit,
             commands::history::update_recording_retention_period,
+            commands::history::update_transcript_retention_period,
+            commands::history::clear_history,
             helpers::clamshell::is_laptop,
         ])
         .events(collect_events![

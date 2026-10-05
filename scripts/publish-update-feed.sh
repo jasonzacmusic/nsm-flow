@@ -17,7 +17,8 @@
 # Run AFTER scripts/release-macos.sh has produced notarized DMGs and the Windows
 # installers have been staged into dist-release/.
 #
-# Usage: scripts/publish-update-feed.sh
+# Usage: scripts/publish-update-feed.sh --prepare-only
+#        scripts/publish-update-feed.sh --publish-prepared
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -25,16 +26,32 @@ ROOT="$PWD"
 DIST="$ROOT/dist-release"
 HUB="${LABS_DOWNLOADS:-$HOME/Documents/Claude/labs-downloads}"
 TAURI="$ROOT/node_modules/.bin/tauri"
-RELEASE_BASE="https://github.com/jasonzacmusic/labs-downloads/releases/latest/download"
+RELEASE_TAG=""
+RELEASE_BASE=""
+MODE="${1:-}"
+case "$MODE" in
+  ""|--prepare-only|--publish-prepared) ;;
+  *) echo "ERROR expected --prepare-only or --publish-prepared" >&2; exit 1 ;;
+esac
 
 say() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 
 VERSION=$(python3 -c "import json;print(json.load(open('src-tauri/tauri.conf.json'))['version'])")
 
+RELEASE_TAG="nsm-flow-v$VERSION"
+RELEASE_BASE="https://github.com/jasonzacmusic/labs-downloads/releases/download/$RELEASE_TAG"
+
 # ---------------------------------------------------------------- preflight --
 say "Preflight"
-[ -x "$TAURI" ] || { echo "ERROR tauri CLI missing — run: bun install" >&2; exit 1; }
+python3 scripts/verify-release.py
 [ -d "$HUB/.git" ] || { echo "ERROR labs-downloads checkout not found at $HUB" >&2; exit 1; }
+[ -z "$(git -C "$HUB" status --porcelain)" ] || { echo "ERROR delivery checkout has concurrent changes; use a clean checkout" >&2; exit 1; }
+git -C "$HUB" fetch -q origin main
+[ "$(git -C "$HUB" rev-parse HEAD)" = "$(git -C "$HUB" rev-parse origin/main)" ] || { echo "ERROR delivery checkout must match origin/main" >&2; exit 1; }
+[ -x "$TAURI" ] || { echo "ERROR tauri CLI missing — run: bun install" >&2; exit 1; }
+[ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "ERROR commit the verified source before preparing a release" >&2; exit 1; }
+
+if [ "$MODE" != "--publish-prepared" ]; then
 
 TAURI_SIGNING_PRIVATE_KEY=$(nsm-pass pass nsm-flow-updater-key 2>/dev/null || true)
 TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$(nsm-pass pass nsm-flow-updater-pass 2>/dev/null || true)
@@ -89,7 +106,12 @@ for label in Apple-Silicon Intel; do
 
   TARBALL="$DIST/NSM-Flow-mac-$label.app.tar.gz"
   rm -f "$TARBALL" "$TARBALL.sig"
-  tar -czf "$TARBALL" -C "$APPDIR" "NSM Flow.app"
+  COPYFILE_DISABLE=1 tar -czf "$TARBALL" -C "$APPDIR" "NSM Flow.app"
+  CHECK="$STAGE/extracted-$label/NSM Flow.app"
+  cargo run --quiet --manifest-path scripts/updater-archive-check/Cargo.toml -- "$TARBALL" "$CHECK"
+  codesign --verify --deep --strict "$CHECK"
+  xcrun stapler validate "$CHECK" >/dev/null
+  spctl -a -t exec "$CHECK"
   SIG=$(sign_and_record "$TARBALL")
   case "$label" in
     Apple-Silicon) SIG_ARM="$SIG" ;;
@@ -108,32 +130,17 @@ echo "signed     NSM-Flow-windows-x64-setup.exe"
 
 # ----------------------------------------------------------------- the feed --
 say "Writing the feed"
-NOTES=$(python3 - <<'PY'
-import pathlib, re
-
-FALLBACK = "See the Nathaniel Labs downloads page for what changed."
-version_re = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")  # README.md and friends must not match
-
-notes = [
-    f for f in pathlib.Path("src/content/release-notes").glob("*.md")
-    if version_re.match(f.stem)
-]
-if not notes:
-    print(FALLBACK)
-else:
-    newest = max(notes, key=lambda f: tuple(int(x) for x in version_re.match(f.stem).groups()))
-    heads = [
-        line[3:].strip()
-        for line in newest.read_text().splitlines()
-        if line.startswith("## ")
-    ]
-    print("; ".join(heads[:3]) if heads else FALLBACK)
-PY
+NOTES=$(VERSION="$VERSION" python3 - <<'PYNOTES'
+import os, pathlib
+notes = pathlib.Path("src/content/release-notes") / (os.environ["VERSION"] + ".md")
+if not notes.is_file(): raise SystemExit("Missing release notes for exact app version")
+heads = [line[3:].strip() for line in notes.read_text().splitlines() if line.startswith("## ")]
+print("; ".join(heads[:4]))
+PYNOTES
 )
 
 PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-FEED="$HUB/appcasts/nsm-flow.json"
-mkdir -p "$HUB/appcasts"
+FEED="$DIST/nsm-flow.json"
 VERSION="$VERSION" NOTES="$NOTES" PUB_DATE="$PUB_DATE" \
 SIG_ARM="$SIG_ARM" URL_ARM="$RELEASE_BASE/NSM-Flow-mac-Apple-Silicon.app.tar.gz" \
 SIG_X64="$SIG_X64" URL_X64="$RELEASE_BASE/NSM-Flow-mac-Intel.app.tar.gz" \
@@ -157,21 +164,39 @@ PY
 echo "feed       $FEED"
 
 # --------------------------------------------------------------- publishing --
-say "Uploading update artifacts"
-gh release upload downloads \
-  "$DIST/NSM-Flow-mac-Apple-Silicon.app.tar.gz" \
-  "$DIST/NSM-Flow-mac-Apple-Silicon.app.tar.gz.sig" \
-  "$DIST/NSM-Flow-mac-Intel.app.tar.gz" \
-  "$DIST/NSM-Flow-mac-Intel.app.tar.gz.sig" \
-  "$DIST/NSM-Flow-windows-x64-setup.exe.sig" \
-  --repo jasonzacmusic/labs-downloads --clobber
+# Produce a complete, reviewable feed without publishing when requested.
+bash scripts/stage-release-bundle.sh
+fi
 
-say "Publishing the feed"
-( cd "$HUB" \
-  && git pull --rebase --autostash -q origin main \
-  && git add appcasts/nsm-flow.json \
-  && git commit -q -m "appcast: NSM Flow $VERSION" \
-  && git push -q origin main ) || echo "(feed unchanged)"
+FEED="$DIST/nsm-flow.json"
+python3 scripts/verify-release.py --prepared
+if [ "$MODE" = "--prepare-only" ]; then
+  say "Prepared signed artifacts and feed; publication remains pending"
+  exit 0
+fi
 
-say "Done"
-cat "$FEED"
+say "Publishing immutable release artifacts"
+# Never clobber an existing version. An interrupted prior publish may resume
+# only when every remote artifact has identical bytes (verified separately).
+if gh release view "$RELEASE_TAG" --repo jasonzacmusic/labs-downloads >/dev/null 2>&1; then
+  python3 scripts/verify-published-release.py
+else
+gh release create "$RELEASE_TAG" --repo jasonzacmusic/labs-downloads --title "NSM Flow $VERSION" \
+  --notes-file "$DIST/RELEASE_NOTES.md" --prerelease --latest=false \
+  "$DIST/NSM-Flow-mac-Apple-Silicon.dmg" "$DIST/NSM-Flow-mac-Intel.dmg" \
+  "$DIST/NSM-Flow-windows-x64-setup.exe" "$DIST/NSM-Flow-windows-x64.msi" \
+  "$DIST/NSM-Flow-mac-Apple-Silicon.app.tar.gz" "$DIST/NSM-Flow-mac-Apple-Silicon.app.tar.gz.sig" \
+  "$DIST/NSM-Flow-mac-Intel.app.tar.gz" "$DIST/NSM-Flow-mac-Intel.app.tar.gz.sig" \
+  "$DIST/NSM-Flow-windows-x64-setup.exe.sig" "$DIST/NSM-Flow-$VERSION-SHA256SUMS.txt" \
+  "$DIST/NSM-Flow-$VERSION-source.zip" "$DIST/NSM-Flow-$VERSION-complete.zip" \
+  "$DIST/provenance-aarch64-apple-darwin.json" "$DIST/provenance-x86_64-apple-darwin.json" \
+  "$DIST/provenance-x86_64-pc-windows-msvc.json" "$FEED"
+fi
+python3 scripts/verify-published-release.py
+
+say "Publishing the verified feed"
+cp "$FEED" "$HUB/appcasts/nsm-flow.json"
+if ! git -C "$HUB" diff --quiet -- appcasts/nsm-flow.json; then
+  ( cd "$HUB" && git add appcasts/nsm-flow.json && git commit -m "appcast: NSM Flow $VERSION" && git push origin HEAD:main )
+fi
+say "Published"

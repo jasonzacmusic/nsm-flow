@@ -71,6 +71,34 @@ pub struct HistoryManager {
     db_path: PathBuf,
 }
 
+/// Clear referenced and orphaned audio before removing text; report any failure.
+fn clear_history_storage(conn: &Connection, recordings_dir: &std::path::Path) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare("SELECT id, file_name FROM transcription_history")?;
+    let entries = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    drop(stmt);
+    for (_, file_name) in &entries {
+        let path = recordings_dir.join(file_name);
+        if !file_name.is_empty() && path.is_file() {
+            fs::remove_file(path)?;
+        }
+    }
+    for entry in fs::read_dir(recordings_dir)? {
+        let path = entry?.path();
+        if path.extension().is_some_and(|extension| extension == "wav") {
+            fs::remove_file(path)?;
+        }
+    }
+    conn.pragma_update(None, "secure_delete", true)?;
+    conn.execute_batch(
+        "DELETE FROM transcription_history; PRAGMA wal_checkpoint(TRUNCATE); VACUUM;",
+    )?;
+    Ok(entries.into_iter().map(|(id, _)| id).collect())
+}
+
 impl HistoryManager {
     pub fn new(app_handle: &AppHandle) -> Result<Self> {
         // Create recordings directory in app data dir
@@ -92,6 +120,7 @@ impl HistoryManager {
 
         // Initialize database and run migrations synchronously
         manager.init_database()?;
+        manager.cleanup_old_entries()?;
 
         Ok(manager)
     }
@@ -193,7 +222,9 @@ impl HistoryManager {
     }
 
     fn get_connection(&self) -> Result<Connection> {
-        Ok(Connection::open(&self.db_path)?)
+        let conn = Connection::open(&self.db_path)?;
+        conn.pragma_update(None, "secure_delete", true)?;
+        Ok(conn)
     }
 
     fn map_history_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<HistoryEntry> {
@@ -267,6 +298,15 @@ impl HistoryManager {
 
         self.cleanup_old_entries()?;
 
+        // Immediate transcript expiry must not re-add a deleted row to the UI.
+        if !conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM transcription_history WHERE id = ?1)",
+            [entry.id],
+            |row| row.get::<_, bool>(0),
+        )? {
+            return Ok(entry);
+        }
+
         // Emit typed event for real-time frontend updates
         if let Err(e) = (HistoryUpdatePayload::Added {
             entry: entry.clone(),
@@ -328,6 +368,15 @@ impl HistoryManager {
     }
 
     pub fn cleanup_old_entries(&self) -> Result<()> {
+        let settings = crate::settings::get_settings(&self.app_handle);
+        let conn = self.get_connection()?;
+        let expired = super::retention::expired_transcripts(
+            &conn,
+            settings.transcript_retention_period,
+            settings.history_limit,
+            Utc::now().timestamp(),
+        )?;
+        self.delete_entries_and_files(&expired)?;
         let retention_period = crate::settings::get_recording_retention_period(&self.app_handle);
 
         match retention_period {
@@ -359,21 +408,19 @@ impl HistoryManager {
         let mut deleted_count = 0;
 
         for (id, file_name) in entries {
+            let file_path = self.recordings_dir.join(file_name);
+            if !file_name.is_empty() && file_path.is_file() {
+                fs::remove_file(&file_path)?;
+            }
             // Delete database entry
             conn.execute(
                 "DELETE FROM transcription_history WHERE id = ?1",
                 params![id],
             )?;
 
-            // Delete WAV file
-            let file_path = self.recordings_dir.join(file_name);
-            if !file_name.is_empty() && file_path.is_file() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete WAV file {}: {}", file_name, e);
-                } else {
-                    debug!("Deleted old WAV file: {}", file_name);
-                    deleted_count += 1;
-                }
+            deleted_count += 1;
+            if let Err(error) = (HistoryUpdatePayload::Deleted { id: *id }).emit(&self.app_handle) {
+                error!("Could not broadcast expired history entry: {}", error);
             }
         }
 
@@ -478,6 +525,7 @@ impl HistoryManager {
         cursor: Option<i64>,
         limit: Option<usize>,
     ) -> Result<PaginatedHistory> {
+        self.cleanup_old_entries()?;
         let conn = self.get_connection()?;
         let limit = limit.map(|l| l.min(100));
 
@@ -641,10 +689,7 @@ impl HistoryManager {
             // Delete the audio file first
             let file_path = self.get_audio_file_path(&entry.file_name);
             if !entry.file_name.is_empty() && file_path.is_file() {
-                if let Err(e) = fs::remove_file(&file_path) {
-                    error!("Failed to delete audio file {}: {}", entry.file_name, e);
-                    // Continue with database deletion even if file deletion fails
-                }
+                fs::remove_file(&file_path)?;
             }
         }
 
@@ -664,6 +709,17 @@ impl HistoryManager {
         Ok(())
     }
 
+    /// Explicit deletion includes saved entries. Automatic expiry excludes them.
+    pub fn clear_history(&self) -> Result<()> {
+        let conn = self.get_connection()?;
+        for id in clear_history_storage(&conn, &self.recordings_dir)? {
+            if let Err(error) = (HistoryUpdatePayload::Deleted { id }).emit(&self.app_handle) {
+                error!("Could not broadcast deleted history: {}", error);
+            }
+        }
+        Ok(())
+    }
+
     fn format_timestamp_title(&self, timestamp: i64) -> String {
         if let Some(utc_datetime) = DateTime::from_timestamp(timestamp, 0) {
             // Convert UTC to local timezone
@@ -677,6 +733,38 @@ impl HistoryManager {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn clear_erases_saved_transcripts_and_orphaned_audio_from_disk() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = dir.path().join("history.db");
+        let recordings = dir.path().join("recordings");
+        std::fs::create_dir(&recordings).unwrap();
+        std::fs::write(recordings.join("saved.wav"), b"fixture audio").unwrap();
+        std::fs::write(recordings.join("orphan.wav"), b"orphan audio").unwrap();
+        std::fs::write(recordings.join("notes.txt"), b"keep this unrelated file").unwrap();
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        conn.execute_batch("CREATE TABLE transcription_history (id INTEGER PRIMARY KEY, file_name TEXT, saved INTEGER, transcription_text TEXT); INSERT INTO transcription_history VALUES (1, 'saved.wav', 1, 'private-fixture-transcript');").unwrap();
+        assert_eq!(
+            super::clear_history_storage(&conn, &recordings).unwrap(),
+            vec![1]
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM transcription_history", [], |row| row
+                .get::<_, i64>(
+                0
+            ))
+            .unwrap(),
+            0
+        );
+        assert!(!recordings.join("saved.wav").exists());
+        assert!(!recordings.join("orphan.wav").exists());
+        assert!(recordings.join("notes.txt").exists());
+        drop(conn);
+        let bytes = std::fs::read(db).unwrap();
+        assert!(!bytes
+            .windows(b"private-fixture-transcript".len())
+            .any(|window| window == b"private-fixture-transcript"));
+    }
     use super::*;
     use rusqlite::{params, Connection};
 

@@ -13,6 +13,17 @@ const ENGLISH_FALLBACK_KEYS = new Set([
   "sidebar.team",
   "settings.debug.recordingRetention.deleteImmediately",
   "footer.getLatestVersion",
+  "settings.postProcessing.api.apiKey.saved",
+  "settings.postProcessing.api.apiKey.remove",
+  "settings.postProcessing.api.apiKey.unlock",
+  "settings.history.clearAll",
+  "settings.history.clearConfirm",
+  "settings.history.transcriptRetention.title",
+  "settings.history.transcriptRetention.description",
+  "settings.history.transcriptRetention.deleteImmediately",
+  "settings.saveError",
+  "models.downloadingCount",
+  "models.downloading",
 ]);
 // `settings.about.projectPage.*` replaced a "Source Code" block whose existing
 // translations promised a public repository that does not exist. Keeping those
@@ -121,6 +132,9 @@ function validateTranslations(): void {
   // Get all key paths from reference
   const referenceKeyPaths = getAllKeyPaths(referenceData);
   console.log(`Reference has ${referenceKeyPaths.length} keys\n`);
+  console.log(
+    "NSM additions use explicitly listed English fallbacks pending native-speaker review.\n",
+  );
 
   // Track validation results
   let hasErrors = false;
@@ -171,7 +185,10 @@ function validateTranslations(): void {
 
     if (result.valid) {
       console.log(
-        colorize(`✓ ${lang.toUpperCase()}: All keys present`, "green"),
+        colorize(
+          `✓ ${lang.toUpperCase()}: Key coverage valid with declared English fallbacks`,
+          "green",
+        ),
       );
     } else {
       console.log(colorize(`✗ ${lang.toUpperCase()}: Issues found`, "red"));
@@ -231,7 +248,7 @@ function validateTranslations(): void {
   } else {
     console.log(
       colorize(
-        `\n✓ All ${totalCount} languages have complete translations!`,
+        `\n✓ All ${totalCount} locales pass key coverage; declared English fallbacks retained`,
         "green",
       ),
     );

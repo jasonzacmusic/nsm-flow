@@ -169,11 +169,14 @@ async fn post_process_transcription(
         provider.id, model
     );
 
-    let api_key = settings
-        .post_process_api_keys
-        .get(&provider.id)
-        .cloned()
-        .unwrap_or_default();
+    let api_key =
+        match crate::credentials::for_provider(&provider.id, &settings.post_process_api_keys) {
+            Ok(key) => key,
+            Err(error) => {
+                warn!("Post-processing credential unavailable: {}", error);
+                return Some(local_fallback);
+            }
+        };
 
     // Disable reasoning for providers where post-processing rarely benefits from it.
     // - custom: top-level reasoning_effort (works for local OpenAI-compat servers)

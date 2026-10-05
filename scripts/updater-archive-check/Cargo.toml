@@ -1,0 +1,8 @@
+[package]
+name = "updater-archive-check"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tar = "0.4.46"
+flate2 = "1"

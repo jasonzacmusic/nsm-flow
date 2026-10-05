@@ -970,6 +970,16 @@ jobs:
             Remove-Item -Recurse -Force $installDir
           }
 
+      - name: Record Windows package provenance
+        if: inputs.upload-artifacts && inputs.target == 'x86_64-pc-windows-msvc'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist-release
+          cp src-tauri/target/release/bundle/nsis/*.exe dist-release/NSM-Flow-windows-x64-setup.exe
+          cp src-tauri/target/release/bundle/msi/*.msi dist-release/NSM-Flow-windows-x64.msi
+          python scripts/release-provenance.py --target x86_64-pc-windows-msvc --output dist-release/provenance-x86_64-pc-windows-msvc.json dist-release/NSM-Flow-windows-x64-setup.exe dist-release/NSM-Flow-windows-x64.msi
+
       - name: Upload artifacts (Windows)
         if: inputs.upload-artifacts && contains(inputs.platform, 'windows')
         uses: actions/upload-artifact@v7
@@ -978,4 +988,5 @@ jobs:
           path: |
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/msi/*.msi
             src-tauri/target/${{ inputs.target != '' && inputs.target != 'x86_64-pc-windows-msvc' && format('{0}/{1}', inputs.target, steps.build-profile.outputs.profile) || steps.build-profile.outputs.profile }}/bundle/nsis/*.exe
+            dist-release/provenance-x86_64-pc-windows-msvc.json
           retention-days: 30

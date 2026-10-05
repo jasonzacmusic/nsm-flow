@@ -1,4 +1,5 @@
 <!-- BEGIN NATHANIEL LABS DELIVERY RULE -->
+
 ## Standing installation and delivery instruction — Jason, 3 October 2026
 
 Every implementation task includes delivery: make the focused change, run applicable checks, build/package/sign as required, install and verify the latest compatible app on Jason's current computer, and publish/deploy the final update through the established Nathaniel Labs channel for all eligible existing users, beta testers, administrators and paid customers. Do not stop at a source push, prepared installer or offer to install. Routine installation/publication is already authorized; do not ask “Shall I publish?” again. Later explicit holds or narrower task instructions take precedence.

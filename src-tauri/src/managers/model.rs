@@ -22,19 +22,29 @@ use std::time::{Duration, Instant};
 use tar::Archive;
 use tauri::{AppHandle, Emitter, Manager};
 
-/// A stalled connection must still respond to Cancel. Keep partial bytes so the
-/// next attempt can resume, and bound each wait rather than the entire download.
+/// Cover every await, including HF metadata and cache locks, with Cancel.
+async fn wait_or_cancel<T>(
+    future: impl std::future::Future<Output = T>,
+    cancel: &CancellationToken,
+) -> Option<T> {
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => None,
+        result = future => Some(result),
+    }
+}
+
+/// Keep partial bytes for resume and bound each network wait, not the transfer.
 async fn download_wait<T>(
     future: impl std::future::Future<Output = T>,
     cancel: &CancellationToken,
     timeout: Duration,
 ) -> Result<Option<T>> {
-    tokio::select! {
-        biased;
-        _ = cancel.cancelled() => Ok(None),
-        result = tokio::time::timeout(timeout, future) => {
-            result.map(Some).map_err(|_| anyhow::anyhow!("Model download stalled. Check your connection and retry to resume."))
-        }
+    match wait_or_cancel(tokio::time::timeout(timeout, future), cancel).await {
+        None => Ok(None),
+        Some(result) => result.map(Some).map_err(|_| {
+            anyhow::anyhow!("Model download stalled. Check your connection and retry to resume.")
+        }),
     }
 }
 
@@ -1815,10 +1825,15 @@ impl ModelManager {
             .map_err(|e| anyhow::anyhow!("Failed to init Hugging Face API: {}", e))?;
         let repo = api.repo(Repo::with_revision(repo_id, RepoType::Model, revision));
         let progress = HfDownloadProgress::new(self.app_handle.clone(), model_id.clone());
-        match repo
-            .download_with_progress_cancellable(&filename, progress, cancel_token)
-            .await
-        {
+        let Some(downloaded) = wait_or_cancel(
+            repo.download_with_progress_cancellable(&filename, progress, cancel_token.clone()),
+            &cancel_token,
+        )
+        .await
+        else {
+            return Ok(());
+        };
+        match downloaded {
             Ok(_) => {}
             Err(hf_hub::api::tokio::ApiError::Cancelled) => {
                 // User cancelled. hf-hub leaves the partially downloaded
@@ -2408,6 +2423,28 @@ impl ModelManager {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cancellation_covers_pending_metadata_or_cache_lock_and_allows_retry() {
+        tauri::async_runtime::block_on(async {
+            let token = super::CancellationToken::new();
+            let cancel = token.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(super::Duration::from_millis(2)).await;
+                cancel.cancel();
+            });
+            assert!(tokio::time::timeout(
+                super::Duration::from_secs(1),
+                super::wait_or_cancel(std::future::pending::<()>(), &token)
+            )
+            .await
+            .unwrap()
+            .is_none());
+            assert_eq!(
+                super::wait_or_cancel(async { 42 }, &super::CancellationToken::new()).await,
+                Some(42)
+            );
+        });
+    }
     #[test]
     fn stalled_download_wait_can_cancel_and_time_out() {
         tauri::async_runtime::block_on(async {

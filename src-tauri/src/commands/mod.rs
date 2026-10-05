@@ -32,7 +32,25 @@ pub fn get_app_dir_path(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 #[specta::specta]
 pub fn get_app_settings(app: AppHandle) -> Result<AppSettings, String> {
-    Ok(get_settings(&app))
+    let mut settings = get_settings(&app);
+    let mut status = std::collections::HashMap::new();
+    for provider in &settings.post_process_providers {
+        let legacy = settings
+            .post_process_api_keys
+            .get(&provider.id)
+            .is_some_and(|key| !key.is_empty());
+        let marker = match crate::credentials::get(&provider.id) {
+            Ok(key) if !key.is_empty() => "[CONFIGURED]",
+            _ if legacy => "[MIGRATION_PENDING]",
+            Err(_) => "[LOCKED]",
+            Ok(_) => "",
+        };
+        status.insert(provider.id.clone(), marker.to_string());
+    }
+    // IPC includes status only, including for unknown legacy providers.
+    settings.post_process_api_keys.clear();
+    settings.post_process_api_keys.extend(status);
+    Ok(settings)
 }
 
 #[tauri::command]

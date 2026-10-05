@@ -402,6 +402,8 @@ pub struct AppSettings {
     pub history_limit: usize,
     #[serde(default = "default_recording_retention_period")]
     pub recording_retention_period: RecordingRetentionPeriod,
+    #[serde(default = "default_transcript_retention_period")]
+    pub transcript_retention_period: RecordingRetentionPeriod,
     #[serde(default)]
     pub paste_method: PasteMethod,
     #[serde(default)]
@@ -573,6 +575,11 @@ fn default_recording_retention_period() -> RecordingRetentionPeriod {
     // Audio is sensitive and expensive to retain. Text history remains local,
     // while source recordings are deleted after transcription by default.
     RecordingRetentionPeriod::DeleteImmediately
+}
+
+fn default_transcript_retention_period() -> RecordingRetentionPeriod {
+    // Upgrades preserve existing transcripts until the user chooses otherwise.
+    RecordingRetentionPeriod::Never
 }
 
 fn default_audio_feedback_volume() -> f32 {
@@ -1029,6 +1036,7 @@ pub fn get_default_settings() -> AppSettings {
         word_correction_threshold: default_word_correction_threshold(),
         history_limit: default_history_limit(),
         recording_retention_period: default_recording_retention_period(),
+        transcript_retention_period: default_transcript_retention_period(),
         paste_method: PasteMethod::default(),
         clipboard_handling: ClipboardHandling::default(),
         auto_submit: default_auto_submit(),
@@ -1143,6 +1151,19 @@ pub fn get_settings(app: &AppHandle) -> AppSettings {
 
     if ensure_post_process_defaults(&mut settings) {
         store.set("settings", serde_json::to_value(&settings).unwrap());
+    }
+
+    // At most one OS-vault migration attempt per process avoids repeated
+    // unlock dialogs during audio recording. Failed keys survive until restart.
+    static MIGRATION_ATTEMPTED: std::sync::atomic::AtomicBool =
+        std::sync::atomic::AtomicBool::new(false);
+    if !MIGRATION_ATTEMPTED.swap(true, std::sync::atomic::Ordering::AcqRel)
+        && crate::credentials::migrate(&mut settings.post_process_api_keys)
+    {
+        store.set("settings", serde_json::to_value(&settings).unwrap());
+        if let Err(error) = store.save() {
+            warn!("Credential migration could not flush settings: {}", error);
+        }
     }
 
     settings

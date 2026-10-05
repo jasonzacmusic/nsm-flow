@@ -82,15 +82,32 @@ const PostProcessingSettingsApiComponent: React.FC = () => {
             grouped={true}
           >
             <div className="flex items-center gap-2">
+              {state.credentialStorePending && (
+                <Alert variant="error">
+                  {t("settings.postProcessing.api.apiKey.unlock")}
+                </Alert>
+              )}
               <ApiKeyField
                 value={state.apiKey}
                 onBlur={state.handleApiKeyChange}
                 placeholder={t(
-                  "settings.postProcessing.api.apiKey.placeholder",
+                  state.apiKeyConfigured && !state.credentialStorePending
+                    ? "settings.postProcessing.api.apiKey.saved"
+                    : "settings.postProcessing.api.apiKey.placeholder",
                 )}
                 disabled={state.isApiKeyUpdating}
                 className="min-w-[320px]"
               />
+              {state.apiKeyConfigured && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={state.isApiKeyUpdating}
+                  onClick={() => state.handleApiKeyChange("")}
+                >
+                  {t("settings.postProcessing.api.apiKey.remove")}
+                </Button>
+              )}
             </div>
           </SettingContainer>
         </>

@@ -49,3 +49,6 @@ __pycache__/
 
 # Nix build output
 result
+
+# Release archive verification build output
+/scripts/updater-archive-check/target/

@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { toast } from "sonner";
+import i18n from "@/i18n";
 import { subscribeWithSelector } from "zustand/middleware";
 import { listen } from "@tauri-apps/api/event";
 import type {
@@ -108,6 +110,10 @@ const settingUpdaters: {
       (value as string) === "Default" || value === null
         ? "default"
         : (value as string),
+    ),
+  transcript_retention_period: (value) =>
+    commands.updateTranscriptRetentionPeriod(
+      value as import("@/bindings").RecordingRetentionPeriod,
     ),
   recording_retention_period: (value) =>
     commands.updateRecordingRetentionPeriod(value as string),
@@ -296,12 +302,23 @@ export const useSettingsStore = create<SettingsStore>()(
 
         const updater = settingUpdaters[key];
         if (updater) {
-          await updater(value);
+          const result = await updater(value);
+          if (
+            result &&
+            typeof result === "object" &&
+            "status" in result &&
+            result.status === "error"
+          ) {
+            throw new Error(
+              "error" in result ? String(result.error) : "Setting rejected",
+            );
+          }
         } else if (key !== "bindings" && key !== "selected_model") {
           console.warn(`No handler for setting: ${String(key)}`);
         }
       } catch (error) {
         console.error(`Failed to update setting ${String(key)}:`, error);
+        toast.error(i18n.t("settings.saveError"));
         if (settings) {
           set({ settings: { ...settings, [key]: originalValue } });
         }
@@ -458,7 +475,11 @@ export const useSettingsStore = create<SettingsStore>()(
         if (settingType === "base_url") {
           await commands.changePostProcessBaseUrlSetting(providerId, value);
         } else if (settingType === "api_key") {
-          await commands.changePostProcessApiKeySetting(providerId, value);
+          const result = await commands.changePostProcessApiKeySetting(
+            providerId,
+            value,
+          );
+          if (result.status === "error") throw new Error(result.error);
         } else if (settingType === "model") {
           await commands.changePostProcessModelSetting(providerId, value);
         }
@@ -468,6 +489,7 @@ export const useSettingsStore = create<SettingsStore>()(
           `Failed to update post-process ${settingType.replace("_", " ")}:`,
           error,
         );
+        toast.error(i18n.t("settings.saveError"));
       } finally {
         setUpdating(updateKey, false);
       }

@@ -22,6 +22,22 @@ use std::time::{Duration, Instant};
 use tar::Archive;
 use tauri::{AppHandle, Emitter, Manager};
 
+/// A stalled connection must still respond to Cancel. Keep partial bytes so the
+/// next attempt can resume, and bound each wait rather than the entire download.
+async fn download_wait<T>(
+    future: impl std::future::Future<Output = T>,
+    cancel: &CancellationToken,
+    timeout: Duration,
+) -> Result<Option<T>> {
+    tokio::select! {
+        biased;
+        _ = cancel.cancelled() => Ok(None),
+        result = tokio::time::timeout(timeout, future) => {
+            result.map(Some).map_err(|_| anyhow::anyhow!("Model download stalled. Check your connection and retry to resume."))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum EngineType {
     /// Any GGML/GGUF model loaded through transcribe-cpp (Whisper, Parakeet,
@@ -1896,14 +1912,21 @@ impl ModelManager {
         };
 
         // Create HTTP client with range request for resuming
-        let client = reqwest::Client::new();
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(15))
+            .build()?;
         let mut request = client.get(&url);
 
         if resume_from > 0 {
             request = request.header("Range", format!("bytes={}-", resume_from));
         }
 
-        let mut response = request.send().await?;
+        let Some(response) =
+            download_wait(request.send(), &cancel_token, Duration::from_secs(30)).await?
+        else {
+            return Ok(());
+        };
+        let mut response = response?;
 
         // If we tried to resume but server returned 200 (not 206 Partial Content),
         // the server doesn't support range requests. Delete partial file and restart
@@ -1920,7 +1943,16 @@ impl ModelManager {
             resume_from = 0;
 
             // Restart download without range header
-            response = client.get(&url).send().await?;
+            let Some(restarted) = download_wait(
+                client.get(&url).send(),
+                &cancel_token,
+                Duration::from_secs(30),
+            )
+            .await?
+            else {
+                return Ok(());
+            };
+            response = restarted?;
         }
 
         // Check for success or partial content status
@@ -1973,7 +2005,12 @@ impl ModelManager {
         let throttle_duration = Duration::from_millis(100);
 
         // Download with progress
-        while let Some(chunk) = stream.next().await {
+        while let Some(next) =
+            download_wait(stream.next(), &cancel_token, Duration::from_secs(30)).await?
+        {
+            let Some(chunk) = next else {
+                break;
+            };
             // Check if download was cancelled
             if cancel_token.is_cancelled() {
                 drop(file);
@@ -2005,6 +2042,10 @@ impl ModelManager {
                 let _ = self.app_handle.emit("model-download-progress", &progress);
                 last_emit = Instant::now();
             }
+        }
+
+        if cancel_token.is_cancelled() {
+            return Ok(());
         }
 
         // Emit final progress to ensure 100% is shown
@@ -2053,6 +2094,9 @@ impl ModelManager {
         .await
         .map_err(|e| anyhow::anyhow!("SHA256 task panicked: {}", e))?;
         verify_result?;
+        if cancel_token.is_cancelled() {
+            return Ok(());
+        }
         let _ = self
             .app_handle
             .emit("model-verification-completed", model_id);
@@ -2110,6 +2154,12 @@ impl ModelManager {
                 );
                 anyhow::anyhow!(error_msg)
             })?;
+
+            if cancel_token.is_cancelled() {
+                fs::remove_dir_all(&temp_extract_dir)?;
+                self.extracting_models.lock().unwrap().remove(model_id);
+                return Ok(());
+            }
 
             // Find the actual extracted directory (archive might have a nested structure)
             let extracted_dirs: Vec<_> = fs::read_dir(&temp_extract_dir)?
@@ -2358,6 +2408,39 @@ impl ModelManager {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn stalled_download_wait_can_cancel_and_time_out() {
+        tauri::async_runtime::block_on(async {
+            let token = super::CancellationToken::new();
+            let cancel = token.clone();
+            tokio::spawn(async move {
+                tokio::time::sleep(super::Duration::from_millis(2)).await;
+                cancel.cancel();
+            });
+            let result = super::download_wait(
+                std::future::pending::<()>(),
+                &token,
+                super::Duration::from_secs(1),
+            )
+            .await
+            .unwrap();
+            assert!(result.is_none());
+            let fresh = super::CancellationToken::new();
+            assert!(super::download_wait(
+                std::future::pending::<()>(),
+                &fresh,
+                super::Duration::from_millis(2)
+            )
+            .await
+            .is_err());
+            assert_eq!(
+                super::download_wait(async { 42 }, &fresh, super::Duration::from_secs(1))
+                    .await
+                    .unwrap(),
+                Some(42)
+            );
+        });
+    }
     use super::*;
     use std::io::Write;
     use tempfile::TempDir;

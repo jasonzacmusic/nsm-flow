@@ -153,3 +153,26 @@ pub async fn update_recording_retention_period(
 
     Ok(())
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_transcript_retention_period(
+    app: AppHandle,
+    history_manager: State<'_, Arc<HistoryManager>>,
+    period: crate::settings::RecordingRetentionPeriod,
+) -> Result<(), String> {
+    let mut settings = crate::settings::get_settings(&app);
+    settings.transcript_retention_period = period;
+    crate::settings::write_settings(&app, settings);
+    history_manager
+        .cleanup_old_entries()
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_history(history_manager: State<'_, Arc<HistoryManager>>) -> Result<(), String> {
+    history_manager
+        .clear_history()
+        .map_err(|error| error.to_string())
+}

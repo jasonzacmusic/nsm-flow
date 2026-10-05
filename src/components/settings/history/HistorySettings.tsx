@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { confirm } from "@tauri-apps/plugin-dialog";
+import { RecordingRetentionPeriodSelector } from "../RecordingRetentionPeriod";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { readFile } from "@tauri-apps/plugin-fs";
 import { Check, Copy, FolderOpen, RotateCcw, Star, Trash2 } from "lucide-react";
@@ -141,8 +143,9 @@ export const HistorySettings: React.FC = () => {
           prev.map((e) => (e.id === payload.entry.id ? payload.entry : e)),
         );
       }
-      // "deleted" and "toggled" are handled by optimistic updates only,
-      // so we intentionally ignore them here to avoid double-mutation.
+      if (payload.action === "deleted") {
+        setEntries((prev) => prev.filter((entry) => entry.id !== payload.id));
+      }
     });
 
     return () => {
@@ -234,6 +237,23 @@ export const HistorySettings: React.FC = () => {
     }
   };
 
+  const clearHistory = async () => {
+    if (
+      !(await confirm(t("settings.history.clearConfirm"), {
+        title: t("settings.history.clearAll"),
+        kind: "warning",
+      }))
+    )
+      return;
+    try {
+      const result = await commands.clearHistory();
+      if (result.status === "error") throw new Error(result.error);
+      await loadPage();
+    } catch {
+      toast.error(t("settings.history.deleteError"));
+    }
+  };
+
   let content: React.ReactNode;
 
   if (loading) {
@@ -274,6 +294,17 @@ export const HistorySettings: React.FC = () => {
 
   return (
     <div className="max-w-3xl w-full mx-auto space-y-6">
+      <RecordingRetentionPeriodSelector transcript descriptionMode="inline" />
+      <div className="flex justify-end">
+        <Button
+          variant="danger-ghost"
+          size="sm"
+          onClick={clearHistory}
+          disabled={loading}
+        >
+          {t("settings.history.clearAll")}
+        </Button>
+      </div>
       <div className="space-y-2">
         <div className="px-4 flex items-center justify-between">
           <div>

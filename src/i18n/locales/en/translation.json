@@ -390,8 +390,11 @@
         },
         "apiKey": {
           "title": "API Key",
-          "description": "API key for the selected provider.",
-          "placeholder": "sk-..."
+          "description": "Stored in your operating system credential vault. Optional cloud processing sends text to the selected provider; local dictation needs no API key.",
+          "placeholder": "sk-...",
+          "saved": "Saved securely — enter a replacement",
+          "remove": "Remove key",
+          "unlock": "Unlock the operating system credential store and restart NSM Flow to complete migration. Existing credentials are preserved until migration succeeds."
         },
         "model": {
           "title": "Model",
@@ -437,7 +440,14 @@
       "retranscribe": "Re-transcribe",
       "retranscribeError": "Failed to re-transcribe. Please try again.",
       "transcribing": "Transcribing...",
-      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon."
+      "transcriptionFailed": "Transcription failed. You can re-transcribe using the retry icon.",
+      "clearAll": "Delete all history",
+      "clearConfirm": "Delete every local transcript and recording, including saved entries? This cannot be undone.",
+      "transcriptRetention": {
+        "title": "Transcript retention",
+        "description": "Controls local text and its recording. Automatic expiry preserves saved entries. Choosing a shorter period deletes matching history now.",
+        "deleteImmediately": "Do not save transcripts"
+      }
     },
     "debug": {
       "title": "Debug",
@@ -590,7 +600,8 @@
           "status": "No transcript or recording is sent to Nathaniel."
         }
       }
-    }
+    },
+    "saveError": "Could not save this setting. Please try again."
   },
   "footer": {
     "checkingUpdates": "Checking for updates...",
@@ -656,5 +667,9 @@
   "overlay": {
     "transcribing": "Transcribing...",
     "processing": "Processing..."
+  },
+  "models": {
+    "downloadingCount": "{{count}} downloading…",
+    "downloading": "Downloading…"
   }
 }

@@ -1,3 +1,5 @@
+import { compareVersions, parseVersion } from "@/lib/utils/semver";
+
 export interface ReleaseNote {
   version: string;
   markdown: string;
@@ -24,14 +26,6 @@ const releaseNoteModules = import.meta.glob<string>(
 
 const releaseNotesByVersion = new Map<string, ReleaseNoteRecord>();
 
-const parseVersion = (version: string): [number, number, number] | null => {
-  const normalized = version.trim().replace(/^v/i, "");
-  const match = normalized.match(/^(\d+)\.(\d+)\.(\d+)/);
-  if (!match) return null;
-
-  return [Number(match[1]), Number(match[2]), Number(match[3])];
-};
-
 for (const [path, markdown] of Object.entries(releaseNoteModules)) {
   const match = path.match(/release-notes\/([^/]+)\.md$/);
   if (!match) continue;
@@ -45,21 +39,6 @@ for (const [path, markdown] of Object.entries(releaseNoteModules)) {
     markdown,
   });
 }
-
-const compareVersions = (a: string, b: string) => {
-  const parsedA = parseVersion(a);
-  const parsedB = parseVersion(b);
-
-  if (!parsedA || !parsedB) return 0;
-
-  for (let index = 0; index < parsedA.length; index += 1) {
-    if (parsedA[index] !== parsedB[index]) {
-      return parsedA[index] - parsedB[index];
-    }
-  }
-
-  return 0;
-};
 
 export const findReleaseNoteToShow = ({
   currentVersion,

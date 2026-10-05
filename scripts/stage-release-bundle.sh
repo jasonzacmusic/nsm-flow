@@ -27,6 +27,11 @@ INSTALLERS=(
   NSM-Flow-mac-Intel.dmg
   NSM-Flow-windows-x64-setup.exe
   NSM-Flow-windows-x64.msi
+  NSM-Flow-mac-Apple-Silicon.app.tar.gz
+  NSM-Flow-mac-Apple-Silicon.app.tar.gz.sig
+  NSM-Flow-mac-Intel.app.tar.gz
+  NSM-Flow-mac-Intel.app.tar.gz.sig
+  NSM-Flow-windows-x64-setup.exe.sig
 )
 
 for f in "${INSTALLERS[@]}"; do
@@ -40,6 +45,9 @@ for f in NSM-Flow-mac-Apple-Silicon.dmg NSM-Flow-mac-Intel.dmg; do
     || { echo "ERROR $f has no notarization ticket; run scripts/release-macos.sh first" >&2; exit 1; }
 done
 
+python3 scripts/verify-release.py
+[ -z "$(git status --porcelain --untracked-files=no)" ] || { echo "ERROR commit the verified source before staging a release" >&2; exit 1; }
+
 # Source archive straight from git, so it matches a commit rather than whatever
 # happens to be in the working tree.
 SOURCE_ZIP="$DIST/NSM-Flow-$VERSION-source.zip"
@@ -47,10 +55,12 @@ rm -f "$SOURCE_ZIP"
 git archive --format=zip --prefix="NSM-Flow-$VERSION/" -o "$SOURCE_ZIP" HEAD
 echo "source     $(basename "$SOURCE_ZIP") @ $(git rev-parse --short HEAD)"
 
+cp "src/content/release-notes/$VERSION.md" "$DIST/RELEASE_NOTES.md"
+
 # Checksums over everything a person can download individually.
 SUMS="$DIST/NSM-Flow-$VERSION-SHA256SUMS.txt"
 : > "$SUMS"
-( cd "$DIST" && shasum -a 256 "${INSTALLERS[@]}" "NSM-Flow-$VERSION-source.zip" >> "$SUMS" )
+( cd "$DIST" && shasum -a 256 "${INSTALLERS[@]}" "NSM-Flow-$VERSION-source.zip" provenance-*.json nsm-flow.json >> "$SUMS" )
 
 # The complete bundle: everything above plus the docs, for anyone who wants one
 # download. Its own checksum goes into SHA256SUMS afterwards.
@@ -59,7 +69,8 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/$BUNDLE"/{Installers,Source,Documents,Checksums}
 for f in "${INSTALLERS[@]}"; do cp "$DIST/$f" "$STAGE/$BUNDLE/Installers/"; done
 cp "$SOURCE_ZIP" "$STAGE/$BUNDLE/Source/"
-for d in README.md BUILD.md NOTICE.md LICENSE NSM_FLOW_INTERN_QA_GUIDE.html \
+cp "$DIST/RELEASE_NOTES.md" "$DIST/nsm-flow.json" "$DIST"/provenance-*.json "$STAGE/$BUNDLE/Documents/"
+for d in README.md BUILD.md NOTICE.md LICENSE RELEASE_ACCEPTANCE.md NSM_FLOW_INTERN_QA_GUIDE.html \
          CLAUDE_CODE_AUDIT_REPORT.md CLAUDE_CODE_AUDIT_PROMPT.md; do
   [ -f "$d" ] && cp "$d" "$STAGE/$BUNDLE/Documents/"
 done

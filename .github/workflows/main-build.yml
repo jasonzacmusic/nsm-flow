@@ -13,6 +13,7 @@ on:
         options:
           - "apple-silicon"
           - "all-platforms"
+          - "windows-only"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,6 +21,7 @@ concurrency:
 
 jobs:
   apple-silicon:
+    if: inputs.build_scope != 'windows-only'
     permissions:
       contents: write
     uses: ./.github/workflows/build.yml
@@ -27,6 +29,18 @@ jobs:
       platform: "macos-26"
       target: "aarch64-apple-darwin"
       build-args: "--target aarch64-apple-darwin"
+      asset-prefix: "nsm-flow-alpha"
+      upload-artifacts: true
+      sign-binaries: false
+
+  windows:
+    if: inputs.build_scope == 'windows-only'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: "windows-latest"
+      target: "x86_64-pc-windows-msvc"
       asset-prefix: "nsm-flow-alpha"
       upload-artifacts: true
       sign-binaries: false

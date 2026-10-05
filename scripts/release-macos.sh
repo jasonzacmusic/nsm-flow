@@ -13,9 +13,9 @@
 #   - a notarytool keychain profile (xcrun notarytool store-credentials)
 #
 # Usage:
-#   # Normal release: sign the app CI already built (both architectures).
-#   gh run download <run-id> -R jasonzacmusic/nsm-flow
-#   PREBUILT_APP="nsm-flow-alpha-aarch64-apple-darwin/macos/NSM Flow.app" \
+#   # Normal release: build locally, then sign the exact app bundle.
+#   bun run tauri build --target aarch64-apple-darwin --bundles app
+#   PREBUILT_APP="src-tauri/target/aarch64-apple-darwin/release/bundle/macos/NSM Flow.app" \
 #     scripts/release-macos.sh aarch64-apple-darwin
 #
 #   # Or build from source, for the host architecture only.
@@ -69,11 +69,9 @@ echo "version    $VERSION"
 echo "target     $TARGET ($ARCH_LABEL)"
 
 # ---------------------------------------------------------- build or adopt --
-# Two ways in. PREBUILT_APP takes an unsigned .app that CI already produced and
-# signs it here; that is the normal release path, because CI builds both Mac
-# architectures reliably and only this Mac holds the Developer ID. With no
-# PREBUILT_APP the script builds from source instead, which only works for the
-# architecture of the machine it runs on.
+# PREBUILT_APP adopts the exact locally built bundle for signing. With no
+# PREBUILT_APP the script builds from source; Intel cross-builds require the
+# compatible ONNX Runtime library as described in BUILD.md.
 WORK=""
 if [ -n "${PREBUILT_APP:-}" ]; then
   [ -d "$PREBUILT_APP" ] || { echo "ERROR PREBUILT_APP is not a directory: $PREBUILT_APP" >&2; exit 1; }
@@ -112,6 +110,11 @@ fi
 
 # ------------------------------------------------------------------ verify ---
 say "Verifying signature"
+APP_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist")
+APP_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")
+[ "$APP_VERSION" = "$VERSION" ] && [ "$APP_ID" = "com.nathanielschool.nsmflow" ] || {
+  echo "ERROR prebuilt app version/identity differs from this verified source" >&2; exit 1;
+}
 codesign --verify --deep --strict --verbose=2 "$APP"
 SIG=$(codesign -dvv "$APP" 2>&1)
 echo "$SIG" | grep -q "TeamIdentifier=$TEAM_ID" || {
@@ -195,3 +198,5 @@ spctl -a -vvv -t exec "$APP"
 say "Done"
 echo "$DMG"
 shasum -a 256 "$DMG"
+python3 scripts/release-provenance.py --target "$TARGET" \
+  --output "$DIST/provenance-$TARGET.json" "$DMG"

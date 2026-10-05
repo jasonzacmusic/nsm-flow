@@ -73,9 +73,14 @@ static MUSICAL_SIGN: Lazy<Regex> = Lazy::new(|| {
 /// to compact in every prose mode. Accidentals have already been normalized by
 /// `MUSICAL_NOTE`, so the root can contain a real Unicode accidental.
 static CHORD_QUALITY: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(
-        r"(?i)\b([a-g])([♭♯♮𝄫𝄪]?)[ \t]+(half[ \t]+diminished(?:[ \t]+(?:seven|7))?|major[ \t]+(?:six|6|seven|7|nine|9|eleven|11|thirteen|13)|minor[ \t]+(?:six|6|seven|7|nine|9|eleven|11|thirteen|13)|dominant(?:[ \t]+(?:seven|7|nine|9|eleven|11|thirteen|13))?|diminished(?:[ \t]+(?:seven|7))?|augmented|suspended[ \t]+(?:two|2|four|4)|sus[ \t]+(?:two|2|four|4)|add[ \t]+(?:two|2|four|4|six|6|nine|9|eleven|11|thirteen|13)|power[ \t]+(?:five|5)|six|6|seven|7|nine|9|eleven|11|thirteen|13)(?:[ \t]+((?:flat|sharp)[ \t]+(?:five|5|nine|9|eleven|11|thirteen|13)))?(?:[ \t]+chord)?\b",
-    )
+    // Speech recognizers also produce ordinal words and numerals: "major 7th"
+    // must be consumed as one quality before plain-triad formatting runs.
+    let seventh = r"(?:seven(?:th)?|7(?:th)?)";
+    let upper_extensions = r"(?:seven(?:th)?|7(?:th)?|nine|ninth|9(?:th)?|eleven(?:th)?|11(?:th)?|thirteen(?:th)?|13(?:th)?)";
+    let extensions = format!(r"(?:six(?:th)?|6(?:th)?|{upper_extensions})");
+    Regex::new(&format!(
+        r"(?i)\b([a-g])([♭♯♮𝄫𝄪]?)[ \t]+(half[ \t]+diminished(?:[ \t]+{seventh})?|major[ \t]+{extensions}|minor[ \t]+{extensions}|dominant(?:[ \t]+{upper_extensions})?|diminished(?:[ \t]+{seventh})?|augmented|suspended[ \t]+(?:two|2|four|4)|sus[ \t]+(?:two|2|four|4)|add[ \t]+(?:two|2|four|4|six|6|nine|9|eleven|11|thirteen|13)|power[ \t]+(?:five|5)|{extensions})(?:[ \t]+((?:flat|sharp)[ \t]+(?:five|5|nine|9|eleven|11|thirteen|13)))?(?:[ \t]+chord)?\b",
+    ))
     .expect("valid chord quality regex")
 });
 
@@ -101,6 +106,13 @@ static MUSIC_CONTEXT: Lazy<Regex> = Lazy::new(|| {
         r"(?i)\b(?:play|practice|sing|hear|write|type|pitch|note|chord|progression|voicing|inversion|cadence|arpeggio|harmony|transpose|key|scale|bar|measure|rehearsal|tempo|metronome|musescore|reaper)\b",
     )
     .expect("valid music context regex")
+});
+
+static CHORD_INTENT: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)\b(?:play|practice|strum|chord|progression|voicing|inversion|cadence|arpeggio|harmony)\b",
+    )
+    .expect("valid chord intent regex")
 });
 
 static SPOKEN_TIME_SIGNATURE: Lazy<Regex> = Lazy::new(|| {
@@ -208,14 +220,14 @@ fn spoken_number(spoken: &str) -> &str {
         "three" => "3",
         "four" => "4",
         "five" => "5",
-        "six" => "6",
-        "seven" => "7",
+        "six" | "sixth" | "6th" => "6",
+        "seven" | "seventh" | "7th" => "7",
         "eight" => "8",
-        "nine" => "9",
+        "nine" | "ninth" | "9th" => "9",
         "ten" => "10",
-        "eleven" => "11",
+        "eleven" | "eleventh" | "11th" => "11",
         "twelve" => "12",
-        "thirteen" => "13",
+        "thirteen" | "thirteenth" | "13th" => "13",
         _ => spoken,
     }
 }
@@ -230,10 +242,7 @@ fn chord_quality_symbol(spoken: &str) -> String {
 
     match word(0) {
         Some("half") => {
-            if words
-                .iter()
-                .any(|part| matches!(part.as_str(), "seven" | "7"))
-            {
+            if words.iter().any(|part| spoken_number(part) == "7") {
                 "ø7".to_string()
             } else {
                 "ø".to_string()
@@ -306,6 +315,45 @@ fn note_or_rest_symbol(duration: &str, kind: &str) -> &'static str {
     }
 }
 
+fn should_compact_triad(text: &str, captures: &regex::Captures<'_>) -> bool {
+    let matched = captures.get(0).expect("triad capture");
+    if matched
+        .as_str()
+        .split_whitespace()
+        .last()
+        .is_some_and(|word| word.eq_ignore_ascii_case("chord"))
+    {
+        return true;
+    }
+    let before = &text[..matched.start()];
+    let after = &text[matched.end()..];
+    let previous_word = before
+        .split(|c: char| !c.is_alphabetic())
+        .rfind(|word| !word.is_empty())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let next_word = after
+        .split(|c: char| !c.is_alphabetic())
+        .find(|word| !word.is_empty())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    // Keep the major/minor quality of named keys and scales. A music
+    // destination alone cannot distinguish a key question from a chord.
+    if ["in", "of", "from", "to", "key", "scale", "tonality"].contains(&previous_word.as_str())
+        || ["key", "scale", "tonality"].contains(&next_word.as_str())
+    {
+        return false;
+    }
+    if ["over", "slash"].contains(&next_word.as_str()) {
+        return true;
+    }
+    let sentence = before
+        .rsplit(['.', '?', '!', ';', '\n'])
+        .next()
+        .unwrap_or("");
+    CHORD_INTENT.is_match(sentence)
+}
+
 fn format_music_notation(text: &str, mode: WritingMode) -> String {
     let with_notes = MUSICAL_NOTE.replace_all(text, |captures: &regex::Captures<'_>| {
         if !should_format_note(text, captures) {
@@ -358,6 +406,9 @@ fn format_music_notation(text: &str, mode: WritingMode) -> String {
     let with_triads = if music_context {
         SIMPLE_TRIAD
             .replace_all(&with_chord_qualities, |captures: &regex::Captures<'_>| {
+                if !should_compact_triad(&with_chord_qualities, captures) {
+                    return captures.get(0).expect("triad capture").as_str().to_string();
+                }
                 let root = captures
                     .get(1)
                     .expect("triad root capture")
@@ -751,6 +802,56 @@ mod tests {
                 WritingMode::Messaging,
             ),
             "Practice Dsus4, Gadd9, A5, and F♯m9."
+        );
+    }
+
+    #[test]
+    fn recognizer_ordinals_preserve_chord_quality() {
+        assert_eq!(
+            local_format(
+                "Play C major 7th, F sharp minor 7th and B flat major",
+                WritingMode::Music,
+            ),
+            "Play Cmaj7, F♯m7 and B♭"
+        );
+        assert_eq!(
+            local_format(
+                "Play C major seventh, D half diminished 7th, G dominant seventh flat nine, A minor 9th, and F major thirteenth.",
+                WritingMode::Music,
+            ),
+            "Play Cmaj7, Dø7, G7♭9, Am9, and Fmaj13."
+        );
+    }
+
+    #[test]
+    fn classroom_keys_and_scales_keep_major_or_minor() {
+        for mode in [
+            WritingMode::General,
+            WritingMode::Music,
+            WritingMode::AiPrompt,
+        ] {
+            assert_eq!(
+                local_format("What is the relative minor of E flat major?", mode),
+                "What is the relative minor of E♭ major?"
+            );
+            assert_eq!(
+                local_format("What is the relative major of C sharp minor?", mode),
+                "What is the relative major of C♯ minor?"
+            );
+        }
+        assert_eq!(
+            local_format(
+                "In E flat major, play C major and F sharp minor chords.",
+                WritingMode::Music
+            ),
+            "In E♭ major, play C and F♯m chords."
+        );
+        assert_eq!(
+            local_format(
+                "Practice the A minor scale, then play C major chord.",
+                WritingMode::Music
+            ),
+            "Practice the A minor scale, then play C."
         );
     }
 

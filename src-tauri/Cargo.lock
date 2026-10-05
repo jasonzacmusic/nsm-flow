@@ -3877,7 +3877,7 @@ dependencies = [
 
 [[package]]
 name = "nsm-flow"
-version = "0.3.0-alpha.2"
+version = "0.3.0-alpha.3"
 dependencies = [
  "active-win-pos-rs",
  "anyhow",

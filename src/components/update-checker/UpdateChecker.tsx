@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { check } from "@tauri-apps/plugin-updater";
+import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { listen } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { confirm, message } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { ProgressBar } from "../shared";
 import { useSettings } from "../../hooks/useSettings";
 import { commands } from "../../bindings";
@@ -92,6 +94,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
           }, 3000);
         }
       }
+      await update?.close();
     } catch (error) {
       console.error("Failed to check for updates:", error);
       setUpdaterUnavailable(true);
@@ -118,17 +121,34 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
       return;
     }
 
+    let reserved = false;
+    let restarting = false;
+    let update: Update | null = null;
     try {
       setIsInstalling(true);
       setDownloadProgress(0);
       downloadedBytesRef.current = 0;
       contentLengthRef.current = 0;
-      const update = await check();
+      update = await check();
 
       if (!update) {
         console.log("No update available during install attempt");
         return;
       }
+
+      const approved = await confirm(
+        update.body || t("footer.updateAvailableShort"),
+        {
+          title: `${t("footer.updateAvailableShort")} — ${update.version}`,
+          kind: "info",
+          okLabel: t("footer.updateAndRestart"),
+          cancelLabel: t("common.cancel"),
+        },
+      );
+      if (!approved) return;
+
+      await invoke("begin_application_update");
+      reserved = true;
 
       await update.downloadAndInstall((event) => {
         switch (event.event) {
@@ -150,9 +170,15 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
         }
       });
       await relaunch();
+      restarting = true;
     } catch (error) {
       console.error("Failed to install update:", error);
+      await message(String(error), { kind: "error" });
     } finally {
+      if (reserved && !restarting) {
+        await invoke("end_application_update").catch(console.error);
+      }
+      await update?.close().catch(console.error);
       setIsInstalling(false);
       setDownloadProgress(0);
       downloadedBytesRef.current = 0;

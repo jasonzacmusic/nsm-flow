@@ -13,6 +13,7 @@ const ENGLISH_FALLBACK_KEYS = new Set([
   "sidebar.team",
   "settings.debug.recordingRetention.deleteImmediately",
   "footer.getLatestVersion",
+  "footer.updateAndRestart",
   "settings.postProcessing.api.apiKey.saved",
   "settings.postProcessing.api.apiKey.remove",
   "settings.postProcessing.api.apiKey.unlock",

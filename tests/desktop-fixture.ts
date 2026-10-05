@@ -1,12 +1,16 @@
 import type { Page } from "@playwright/test";
 
 /** Native IPC fixture for UI contracts. Audio/OS acceptance uses the signed app. */
-export async function mockDesktop(page: Page) {
-  await page.addInitScript(() => {
+export async function mockDesktop(page: Page, withUpdate = false) {
+  await page.addInitScript((withUpdate) => {
     const state = {
       confirm: false,
       failRetention: false,
       keyWrites: [] as string[],
+      updateCalls: [] as string[],
+      updateDialogs: [] as any[],
+      updateBusy: false,
+      updateDownloadFails: false,
       settings: {
         onboarding_completed: true,
         app_language: "en",
@@ -14,7 +18,7 @@ export async function mockDesktop(page: Page) {
         selected_model: "small",
         bindings: {},
         post_process_enabled: true,
-        update_checks_enabled: false,
+        update_checks_enabled: withUpdate,
         show_whats_new_on_update: false,
         recording_retention_period: "delete_immediately",
         transcript_retention_period: "never",
@@ -77,6 +81,26 @@ export async function mockDesktop(page: Page) {
           delete callbacks[id];
         },
         invoke: async (command: string, args: any = {}) => {
+          state.updateCalls.push(command);
+          if (command === "plugin:updater|check")
+            return withUpdate
+              ? {
+                  rid: 1,
+                  currentVersion: "0.3.0-alpha.3",
+                  version: "0.3.0-alpha.4",
+                  body: "Release fixture: clearer classroom notation",
+                  rawJson: {},
+                }
+              : null;
+          if (command === "begin_application_update") {
+            if (state.updateBusy)
+              throw "Finish your recording or transcription before updating.";
+            return null;
+          }
+          if (command === "plugin:updater|download_and_install") {
+            if (state.updateDownloadFails) throw "Download unavailable";
+            return null;
+          }
           if (
             command === "get_app_settings" ||
             command === "get_default_settings"
@@ -99,7 +123,10 @@ export async function mockDesktop(page: Page) {
             state.keyWrites.push(args.apiKey);
             return null;
           }
-          if (command === "plugin:dialog|confirm") return state.confirm;
+          if (command.startsWith("plugin:dialog|")) {
+            state.updateDialogs.push({ command, args });
+            return state.confirm;
+          }
           if (
             command.includes("check_accessibility") ||
             command.includes("check_microphone")
@@ -118,12 +145,12 @@ export async function mockDesktop(page: Page) {
           if (command === "get_team_member") return null;
           if (command === "get_transcription_model_status")
             return { is_loaded: false, is_loading: false };
-          if (command === "plugin:app|version") return "0.3.0-alpha.2";
+          if (command === "plugin:app|version") return "0.3.0-alpha.3";
           if (command === "plugin:app|name") return "NSM Flow";
           if (command === "plugin:event|listen") return next++;
           return null;
         },
       },
     });
-  });
+  }, withUpdate);
 }

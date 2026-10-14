@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Repair rpm 0.16's partial-write digest bug in unsigned gzip RPMs only.
+"""Normalize rpm 0.16 metadata in unsigned gzip RPMs only.
 
 Sha256Writer hashes the entire input buffer before the compressor reports how
 many bytes it consumed. Large files can therefore get a wrong PAYLOADDIGESTALT.
-Retain the exact payload and every field except that digest and HEADER SHA256.
+Also supply LONGARCHIVESIZE: RPM 4.17's rpm2cpio requires this legacy length.
+Retain the exact payload and main header except that digest and HEADER SHA256.
 Never rewrite a signed package, a corrupt header, or a corrupt compressed payload.
 The result must still pass the system RPM digest and extraction checks.
 """
@@ -53,7 +54,7 @@ def repair(raw):
         raise ValueError("Not an RPM")
     signature_end, signature = header(data, 96)
     # Only the immutable-region marker and unsigned SHA256 digest are accepted.
-    if set(signature) != {62, 273}:
+    if set(signature) not in ({62, 273}, {62, 271, 273}):
         raise ValueError("Refusing signed or unrecognized RPM signature header")
     main = (signature_end + 7) // 8 * 8
     payload_start, tags = header(data, main)
@@ -67,13 +68,30 @@ def repair(raw):
     compressed = data[payload_start:]
     if string(data, tags, 5092) != hashlib.sha256(compressed).hexdigest():
         raise ValueError("Original compressed RPM payload digest mismatch")
-    actual = hashlib.sha256(gzip.decompress(compressed)).hexdigest()
-    if string(data, tags, 5097) == actual:
-        return bytes(data)
-    replace_digest(data, tags, 5097, actual)
-    replace_digest(data, signature, 273, hashlib.sha256(data[main:payload_start]).hexdigest())
+    uncompressed = gzip.decompress(compressed)
+    actual = hashlib.sha256(uncompressed).hexdigest()
+    if string(data, tags, 5097) != actual:
+        replace_digest(data, tags, 5097, actual)
+    digest = hashlib.sha256(data[main:payload_start]).hexdigest()
     assert data[payload_start:] == compressed
-    return bytes(data)
+    if 271 in signature:
+        kind, position, count = signature[271]
+        if (kind, count) != (5, 1):
+            raise ValueError("Unsupported archive length tag")
+        if struct.unpack_from(">Q", data, position)[0] == len(uncompressed):
+            replace_digest(data, signature, 273, digest)
+            return bytes(data)
+    # Canonical unsigned signature header: immutable region, 64-bit archive
+    # length, and SHA256 of the main header. No signature is removed or forged.
+    store = struct.pack(">Q", len(uncompressed)) + digest.encode("ascii") + b"\0"
+    store += b"\0" * (-len(store) % 4)
+    region_position = len(store)
+    store += struct.pack(">IIiI", 62, 7, -48, 16)
+    entries = b"".join(struct.pack(">IIII", *entry) for entry in
+                       ((62, 7, region_position, 16), (271, 5, 0, 1), (273, 6, 8, 1)))
+    signature_header = b"\x8e\xad\xe8\x01" + b"\0" * 4 + struct.pack(">II", 3, len(store)) + entries + store
+    signature_header += b"\0" * (-len(signature_header) % 8)
+    return bytes(data[:96]) + signature_header + bytes(data[main:])
 
 
 if __name__ == "__main__":

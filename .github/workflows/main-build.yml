@@ -15,12 +15,31 @@ on:
           - "all-platforms"
           - "windows-only"
           - "linux-only"
+          - "linux-verify-only"
+      package_run:
+        description: "Existing same-repository Linux artifact run (verify-only)"
+        required: false
+        type: string
+      package_commit:
+        description: "Exact source SHA from that Linux build (verify-only)"
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.build_scope }}
   cancel-in-progress: true
 
 jobs:
+  linux-packages:
+    if: inputs.build_scope == 'linux-verify-only'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/linux-package-check.yml
+    with:
+      source_run: ${{ inputs.package_run }}
+      source_commit: ${{ inputs.package_commit }}
+
   apple-silicon:
     if: inputs.build_scope == 'apple-silicon' || inputs.build_scope == 'all-platforms'
     permissions:

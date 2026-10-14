@@ -1,0 +1,85 @@
+name: Linux package acceptance
+
+on:
+  workflow_call:
+    inputs:
+      source_run:
+        required: true
+        type: string
+      source_commit:
+        required: true
+        type: string
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Retrieve exact same-repository diagnostic packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]]
+          [[ "$SOURCE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN" > /tmp/source-run.json
+          python3 - <<'PY'
+          import json, os
+          run = json.load(open('/tmp/source-run.json'))
+          assert run['head_repository']['full_name'] == os.environ['GITHUB_REPOSITORY']
+          assert run['head_sha'] == os.environ['SOURCE_COMMIT']
+          assert run['path'] == '.github/workflows/main-build.yml'
+          PY
+          gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+            --name diagnostic-linux-x86_64-unknown-linux-gnu --dir packages
+      - name: Install test host runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-37 libgtk-3-0 \
+            libayatana-appindicator3-1 libasound2 libxdo3 libgtk-layer-shell0 \
+            libopenblas0 libvulkan1 xvfb rpm cpio
+      - name: Verify all three exact packages
+        env:
+          NSM_BUNDLE_DIR: packages
+          NSM_LINUX_PLATFORM: ubuntu-22.04
+          NSM_LINUX_TARGET: x86_64-unknown-linux-gnu
+        run: |
+          set -euo pipefail
+          test "$(find packages -name '*.deb' | wc -l)" -eq 1
+          test "$(find packages -name '*.rpm' | wc -l)" -eq 1
+          test "$(find packages -name '*.AppImage' | wc -l)" -eq 1
+          bash scripts/ci/audit-linux-packages.sh
+      - name: Record verified package provenance
+        env:
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          SOURCE_RUN: ${{ inputs.source_run }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil
+          out = pathlib.Path('verified-linux'); out.mkdir()
+          artifacts = []
+          for ext in ('deb', 'rpm', 'AppImage'):
+              matches = list(pathlib.Path('packages').rglob('*.' + ext)); assert len(matches) == 1
+              name = 'NSM-Flow-linux-x64.' + ext
+              path = out / name; shutil.copy2(matches[0], path)
+              artifacts.append({'name': name, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'byteLength': path.stat().st_size})
+          version = json.loads(pathlib.Path('src-tauri/tauri.conf.json').read_text())['version']
+          repo = os.environ['GITHUB_REPOSITORY']
+          manifest = {'version': version, 'target': 'x86_64-unknown-linux-gnu',
+                      'commit': os.environ['SOURCE_COMMIT'], 'artifacts': artifacts,
+                      'buildRun': f"https://github.com/{repo}/actions/runs/{os.environ['SOURCE_RUN']}",
+                      'verificationCommit': os.environ['GITHUB_SHA'],
+                      'verificationRun': f"https://github.com/{repo}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                      'checks': 'All three packages: private runtime libraries, extraction, isolated Xvfb launch and CPU backend'}
+          (out / 'provenance-x86_64-unknown-linux-gnu.json').write_text(json.dumps(manifest, indent=2) + '\n')
+          PY
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verified-linux-x86_64-unknown-linux-gnu
+          path: verified-linux/*
+          retention-days: 7

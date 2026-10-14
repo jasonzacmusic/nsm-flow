@@ -84,6 +84,7 @@ if compgen -G "${BUNDLE_DIR}/rpm/*.rpm" > /dev/null; then
   fi
   for rpm_pkg in "${BUNDLE_DIR}"/rpm/*.rpm; do
     echo "Auditing rpm package: ${rpm_pkg}"
+    rpm -Kv "$rpm_pkg"
     listing="$(mktemp)"
     if ! rpm -qpl "$rpm_pkg" > "$listing" 2>&1; then
       cat "$listing" >&2
@@ -105,8 +106,7 @@ if compgen -G "${BUNDLE_DIR}/rpm/*.rpm" > /dev/null; then
     root="$(mktemp -d)"
     rpm_path="$(realpath "$rpm_pkg")"
     echo "Extracting RPM into ${root}"
-    # Read the complete payload before cpio exits at its TRAILER!!! record.
-    # A pipe can give rpm2cpio SIGPIPE on valid trailing archive padding.
+    # Keep digest decoding and extraction failures separate and visible.
     archive="$(mktemp)"
     rpm2cpio "$rpm_path" > "$archive"
     (cd "$root" && cpio -idm --no-preserve-owner < "$archive")

@@ -724,6 +724,16 @@ jobs:
             echo "No AppImage found to process"
           fi
 
+      - name: Repair unsigned RPM payload digest metadata
+        if: contains(inputs.platform, 'ubuntu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR="src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle"
+          if compgen -G "${BUNDLE_DIR}/rpm/*.rpm" > /dev/null; then
+            python3 scripts/ci/repair-rpm-digests.py "$BUNDLE_DIR"/rpm/*.rpm | tee "$BUNDLE_DIR/rpm-digest-repair.json"
+          fi
+
       - name: Audit Linux package runtime contents
         if: contains(inputs.platform, 'ubuntu')
         shell: bash

@@ -10,6 +10,19 @@ checksum = "fe438c63458706e03479442743baae6c88256498e6431708f6dfc520a26515d3"
 
 [[package]]
 name = "active-win-pos-rs"
+version = "0.10.0"
+dependencies = [
+ "appkit-nsworkspace-bindings",
+ "core-foundation 0.9.4",
+ "core-graphics 0.23.2",
+ "kdotool",
+ "objc",
+ "windows 0.48.0",
+ "xcb",
+]
+
+[[package]]
+name = "active-win-pos-rs"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37e2d4aadc5e08b1ae3e26c39454c18d4d3454af88edd88d3561a79e1d6062d4"
@@ -3879,7 +3892,8 @@ dependencies = [
 name = "nsm-flow"
 version = "0.3.0-alpha.3"
 dependencies = [
- "active-win-pos-rs",
+ "active-win-pos-rs 0.10.0",
+ "active-win-pos-rs 0.11.0",
  "anyhow",
  "base64 0.22.1",
  "chrono",

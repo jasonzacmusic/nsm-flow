@@ -124,13 +124,7 @@ jobs:
         if: contains(inputs.platform, 'ubuntu-24.04') && !contains(inputs.platform, 'arm')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libappindicator3-dev librsvg2-dev patchelf libasound2-dev libopenblas-dev libx11-dev libxtst-dev libxrandr-dev libgtk-layer-shell0 libgtk-layer-shell-dev \
-            libwebkit2gtk-4.1-0=2.44.0-2 \
-            libwebkit2gtk-4.1-dev=2.44.0-2 \
-            libjavascriptcoregtk-4.1-0=2.44.0-2 \
-            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
-            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
-            gir1.2-webkit2-4.1=2.44.0-2
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev libopenblas-dev libx11-dev libxtst-dev libxrandr-dev libgtk-layer-shell0 libgtk-layer-shell-dev
 
       - name: install dependencies (ubuntu 24.04 arm64)
         if: contains(inputs.platform, 'ubuntu-24.04-arm')
@@ -433,24 +427,20 @@ jobs:
         shell: bash
         run: |
           ORT_VERSION="1.24.2"
-          curl -L -o ort.tgz "https://blob.handy.computer/onnxruntime-linux-x86_64-${ORT_VERSION}.tgz"
+          curl --fail --location -o ort.tgz "https://github.com/microsoft/onnxruntime/releases/download/v${ORT_VERSION}/onnxruntime-linux-x64-${ORT_VERSION}.tgz"
           tar xzf ort.tgz
-          ORT_DIR="$(pwd)/onnxruntime-linux-x86_64-${ORT_VERSION}"
-          echo "ORT_LIB_LOCATION=$ORT_DIR/lib" >> $GITHUB_ENV
-          echo "ORT_PREFER_DYNAMIC_LINK=1" >> $GITHUB_ENV
-          # Resolve symlinks so the deb bundler gets real files (not broken symlinks)
-          for f in "$ORT_DIR"/lib/libonnxruntime.so*; do
-            if [ -L "$f" ]; then
-              cp -L "$f" "$f.real" && mv "$f.real" "$f"
+          ORT_DIR="$(pwd)/onnxruntime-linux-x64-${ORT_VERSION}"
+          for library in "$ORT_DIR"/lib/libonnxruntime.so*; do
+            if [ -L "$library" ]; then
+              cp -L "$library" "$library.real" && mv "$library.real" "$library"
             fi
           done
-          # Ship ORT in Handy's private lib dir under its SONAME only — the one
-          # name the loader resolves (handy has NEEDED libonnxruntime.so.1).
-          # Shipping the .so/.so.x.y.z aliases too would triplicate the lib as
-          # real files and draw ldconfig warnings (issue #1639).
-          # deb.files key = destination in package, value = source on disk
+          echo "ORT_LIB_LOCATION=$ORT_DIR/lib" >> "$GITHUB_ENV"
+          echo "ORT_PREFER_DYNAMIC_LINK=1" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$ORT_DIR/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
           jq --arg so1 "$ORT_DIR/lib/libonnxruntime.so.1" \
-            '.bundle.linux.deb.files["/usr/lib/Handy/libonnxruntime.so.1"] = $so1' \
+            '.bundle.linux.deb.files["/usr/lib/Handy/libonnxruntime.so.1"] = $so1 |
+             .bundle.linux.rpm.files["/usr/lib/Handy/libonnxruntime.so.1"] = $so1' \
             src-tauri/tauri.conf.json > tmp.json && mv tmp.json src-tauri/tauri.conf.json
 
       # Windows x64 links a BASELINE ONNX Runtime dynamically instead of statically
@@ -509,6 +499,10 @@ jobs:
       # libtranscribe.so (a NEEDED of `handy`) while bundling. tauri-action
       # reuses this compile incrementally. TRANSCRIBE_LIBDIR is consumed by the
       # AppImage post-processing step to co-locate the dlopen'd ggml modules.
+      - name: Collect target dependency notices (Linux)
+        if: contains(inputs.platform, 'ubuntu')
+        run: python3 scripts/collect-licenses.py --target ${{ inputs.target }} --output src-tauri/resources/THIRD_PARTY_NOTICES.txt
+
       - name: Pre-build and locate transcribe-cpp backend libs (Linux)
         if: contains(inputs.platform, 'ubuntu')
         shell: bash
@@ -776,8 +770,8 @@ jobs:
             # Run under a virtual X server: handy initializes GTK on startup even
             # on the headless --list-devices path, which fails without a display.
             HANDY_NO_GTK_LAYER_SHELL=1 \
-            LD_LIBRARY_PATH="${root}/usr/lib/Handy:${root}/usr/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}" \
-              xvfb-run -a "${root}/usr/bin/handy" --list-devices >/tmp/handy-package-smoke.log
+            LD_LIBRARY_PATH="${root}/usr/lib/Handy:${root}/usr/lib" \
+              xvfb-run -a "${root}/usr/bin/nsm-flow" --list-devices >/tmp/handy-package-smoke.log
             echo "${label} --list-devices smoke passed"
           }
 
@@ -786,7 +780,7 @@ jobs:
               echo "Auditing deb package: ${deb}"
               listing="$(mktemp)"
               dpkg-deb -c "$deb" > "$listing"
-              require_pattern "$listing" 'usr/bin/handy$' "handy binary"
+              require_pattern "$listing" 'usr/bin/nsm-flow$' "NSM Flow binary"
               require_pattern "$listing" 'usr/lib/Handy/libtranscribe\.so\.[0-9]+$' "transcribe runtime library (SONAME)"
               require_pattern "$listing" 'usr/lib/Handy/libggml-cpu.*\.so' "ggml CPU backend module"
               if [[ "${{ inputs.platform }}" == *"ubuntu-22.04"* && "${{ inputs.target }}" == "x86_64-unknown-linux-gnu" ]]; then
@@ -816,16 +810,23 @@ jobs:
               echo "Auditing rpm package: ${rpm_pkg}"
               listing="$(mktemp)"
               rpm -qpl "$rpm_pkg" > "$listing"
-              require_pattern "$listing" '/usr/bin/handy$' "handy binary"
+              require_pattern "$listing" '/usr/bin/nsm-flow$' "NSM Flow binary"
               require_pattern "$listing" '/usr/lib/Handy/libtranscribe\.so\.[0-9]+$' "transcribe runtime library (SONAME)"
               require_pattern "$listing" '/usr/lib/Handy/libggml-cpu.*\.so' "ggml CPU backend module"
+              if [[ "${{ inputs.platform }}" == *"ubuntu-22.04"* && "${{ inputs.target }}" == "x86_64-unknown-linux-gnu" ]]; then
+                require_pattern "$listing" 'usr/lib/Handy/libonnxruntime\.so\.[0-9]+$' "ONNX Runtime library (SONAME)"
+              fi
               # Same /usr/lib pollution guard as the deb audit (issue #1639).
               if grep -Eq 'usr/lib/[^/]+\.so' "$listing"; then
                 echo "ERROR: libraries installed directly into /usr/lib (issue #1639):" >&2
                 grep -E 'usr/lib/[^/]+\.so' "$listing" >&2
                 exit 1
               fi
-              rm -f "$listing"
+              root="$(mktemp -d)"
+              rpm_path="$(realpath "$rpm_pkg")"
+              (cd "$root" && rpm2cpio "$rpm_path" | cpio -idm --quiet)
+              smoke_binary "$root" "rpm"
+              rm -rf "$root" "$listing"
             done
           fi
 
@@ -838,7 +839,7 @@ jobs:
               (
                 cd "$workdir"
                 ./Handy.AppImage --appimage-extract >/dev/null
-                require_path "squashfs-root/usr/bin/handy" "AppImage handy binary"
+                require_path "squashfs-root/usr/bin/nsm-flow" "AppImage NSM Flow binary"
                 # The SONAME (libtranscribe.so.N) is the name the loader
                 # resolves; the bare .so alias may or may not be present.
                 if ! find "squashfs-root/usr/lib" -name 'libtranscribe.so*' | grep -q .; then

@@ -1,157 +1,81 @@
 # NSM Flow
 
-Free, local-first voice dictation for the Nathaniel School of Music team.
+**Free, open-source voice dictation with local speech recognition and Indian vocabulary support.**
 
-Hold the shortcut, speak, and release. NSM Flow transcribes on the computer and
-pastes the result into the active app. It is built for English with Indian names
-and music terminology, and it changes its writing mode for email, WhatsApp,
-AI prompts, documents, and code.
+Speak into your microphone and paste the result into the app you are using.
+NSM Flow is a desktop app from Nathaniel School of Music, built on
+[Handy](https://github.com/cjpais/Handy). It runs speech models on your computer;
+no subscription, account, or paid API is required for dictation.
 
-## MVP features
+**Public alpha: 0.3.0-alpha.3.** macOS and Windows downloads are available now.
+Linux packaging is being verified; see the [audit](docs/AUDIT-2026-10-14.md) for
+actual evidence and remaining device tests. This is desktop software, not an
+iOS, Android, or browser app.
 
-- macOS and Windows desktop apps built with Tauri, Rust, and React
-- push-to-talk by default (`Fn` on macOS, `Ctrl+Space` on Windows)
-- fully local Whisper-family and Parakeet speech recognition
-- seeded NSM vocabulary including Inchara, Chitra, Chandana, Arnabi,
-  Melakarta, Konnakol, Nathaniel School of Music, and NSM
-- a versioned, conservative India lexicon covering spellings for cities,
-  clothing, food, deities and sacred names, temples, schools, colleges,
-  universities, institutes, and names from across the country
-- app-aware writing modes for email, WhatsApp, AI prompts, documents, code,
-  and music software
-- local musical typing that converts spoken accidentals into real Unicode
-  notation: B♭, F♯, C♮, B𝄫, and C𝄪
-- compact chord typing for extensions, alterations, suspensions, diminished
-  and half-diminished chords, slash chords, time signatures, tempo marks, and
-  explicit note/rest symbols: B♭maj7, G7♭9, Dø7, A/C♯, 6/8, and ♩ = 120
-- stronger email formatting with safe paragraph, list, subject, greeting, and
-  sign-off rules
-- optional local LLM formatting through any OpenAI-compatible server
-- Google team identity with PKCE and a localhost callback
-- local text history with source-audio storage disabled by default
-- safe, review-first migration of vocabulary learned by Wispr Flow
+## Download and install
 
-No transcript, recording, or Google token is uploaded to Nathaniel by the
-desktop app. Google sign-in stores only the verified name and email locally.
+| Computer                             | Download                                                                                                                                                                                                                                                          | Status                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Mac with Apple silicon (M1 or newer) | [DMG](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-mac-Apple-Silicon.dmg)                                                                                                                                   | Signed and Apple notarized           |
+| Intel Mac                            | [DMG](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-mac-Intel.dmg)                                                                                                                                           | Signed and Apple notarized           |
+| Windows x64                          | [Setup EXE](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-windows-x64-setup.exe) · [MSI](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-windows-x64.msi) | Unsigned alpha; SmartScreen may warn |
+| Linux x64                            | [Build instructions](BUILD.md#linux)                                                                                                                                                                                                                              | Packaged alpha pending verification  |
 
-## Downloads
+Read the **[installation guide](docs/INSTALLATION.md)** for setup, model choice,
+permissions, checksums, and troubleshooting. Download checksums from the
+[matching release](https://github.com/jasonzacmusic/labs-downloads/releases/tag/nsm-flow-v0.3.0-alpha.3).
+The links above use a specific release because `labs-downloads/releases/latest`
+can point to a different Nathaniel product.
 
-Nathaniel Labs keeps stable URLs for the newest public alpha:
+## Indian names and music
 
-- [Mac — Apple silicon](https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-mac-Apple-Silicon.dmg)
-- [Mac — Intel](https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-mac-Intel.dmg)
-- [Windows — Setup EXE](https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-windows-x64-setup.exe)
-- [Windows — MSI](https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-windows-x64.msi)
-- [Complete installer and QA bundle](https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-0.3.0-alpha.1-complete.zip)
-- [SHA-256 checksums](https://github.com/jasonzacmusic/labs-downloads/releases/latest/download/NSM-Flow-0.3.0-alpha.1-SHA256SUMS.txt)
+- A bundled India vocabulary covers names, places, food, clothing, institutions,
+  and music terms. Add your own words in Settings.
+- Multilingual Whisper models support multiple Indian languages; choose a model
+  that supports your language. English-only Parakeet models cannot transcribe Hindi.
+- Spoken music notation becomes compact text, including B♭, F♯, B♭maj7, G7♭9,
+  Dø7, A/C♯, 6/8, and ♩ = 120.
+- Writing modes adapt formatting for email, WhatsApp, notes, prompts, code, and
+  music software. Rules run locally; an optional LLM can perform further cleanup.
 
-### Installing on macOS
+Indian vocabulary support means spelling hints and corrections. It does not
+mean we trained a new speech model or proved equal accuracy across every Indian
+accent, language, or code-switched sentence. Help measure those results with the
+[testing guide](docs/TESTING.md).
 
-Open the disk image and drag NSM Flow to Applications. The app is signed with
-Nathaniel School of Music's Apple Developer ID and notarized by Apple, so it
-opens normally — no "damaged" warning and no right-click workaround.
+## Privacy and AI
 
-On first launch macOS asks for **microphone** access (to hear you) and
-**accessibility** access (to send the transcribed text to whatever app you are
-typing in). Both are required; the app walks you through them.
+Speech recognition runs locally after you download a model. Text history is
+stored locally; source audio retention defaults to immediate deletion after
+processing. History controls let you clear stored text or turn retention off.
+Temporary audio and logs can still contain sensitive data; local storage is not
+encrypted by this app.
 
-### Installing on Windows
+The default optional formatter points to a local server and falls back to local
+rules when no LLM model is configured. If you select a cloud provider or a remote
+custom server, **transcript text is sent there** and provider charges may apply.
+Google team sign-in is optional and requires an administrator-configured OAuth
+client. It is unnecessary for public dictation.
 
-Windows installers are **not yet code-signed**, so SmartScreen shows
-"Windows protected your PC" the first time you run one. To install anyway:
-click **More info**, then **Run anyway**. Verify the download against the
-SHA-256 checksums above first if you want to be certain the file is intact.
-See [`WINDOWS_SIGNING.md`](WINDOWS_SIGNING.md) for what it would take to remove
-that warning.
+Model downloads and update checks use the network. You can disable update checks
+for offline use; upgrades require your approval and wait for active dictation to
+finish. Read the [privacy guide](docs/PRIVACY.md) and
+[model/license guide](docs/MODELS.md) before selecting optional services.
 
-Use the Setup EXE unless you specifically need the MSI for managed deployment.
-The Setup EXE also offers a portable install that keeps all data in a `Data`
-folder next to the app.
+## Open source and contributing
 
-## Status
+Application source, including NSM additions, is licensed under [MIT](LICENSE).
+The retained Handy attribution is in [NOTICE.md](NOTICE.md). Downloaded model
+weights and bundled dependencies have their own licenses; some catalog models
+have noncommercial or custom terms. MIT does not relicense those weights or grant
+rights to imply Nathaniel endorsement of a fork.
 
-Version `0.3.0-alpha.1` is a free Nathaniel Labs public alpha. Employee login is
-optional and is not required for local dictation.
+- [Build from source](BUILD.md)
+- [Contribute code or documentation](CONTRIBUTING.md)
+- [Report a bug](https://github.com/jasonzacmusic/nsm-flow/issues/new/choose)
+- [Security reporting](SECURITY.md)
+- [Complete audit and improvement priorities](docs/AUDIT-2026-10-14.md)
+- [Maintainer release process](docs/RELEASING.md)
 
-- **macOS** — signed and notarized. Verified end to end from a quarantined
-  download: Gatekeeper reports `source=Notarized Developer ID`.
-- **Windows** — unsigned. Every user sees a SmartScreen warning until Nathaniel
-  buys a code-signing certificate; see [`WINDOWS_SIGNING.md`](WINDOWS_SIGNING.md).
-  Nothing else about the Windows build is blocked by this.
-- **Automatic updates** — live. The app checks a signed feed and can install the
-  next version itself on both platforms.
-- **Google sign-in** — still needs a desktop OAuth client ID from Nathaniel.
-  Dictation works fully without it.
-
-Accuracy against real accents, and cross-app paste behaviour, still need the
-intern test matrix on physical Mac and Windows computers before this is
-described as fully proven.
-
-Android is intentionally deferred until the desktop push-to-talk workflow and
-Indian-name benchmark are stable.
-
-## Releasing
-
-Installers are built by GitHub Actions and signed on a Mac that holds the
-Developer ID:
-
-```text
-gh workflow run main-build.yml --ref <branch> -f build_scope=all-platforms
-gh run download <run-id>
-PREBUILT_APP="nsm-flow-alpha-aarch64-apple-darwin/macos/NSM Flow.app" \
-  scripts/release-macos.sh aarch64-apple-darwin
-PREBUILT_APP="nsm-flow-alpha-x86_64-apple-darwin/macos/NSM Flow.app" \
-  scripts/release-macos.sh x86_64-apple-darwin
-scripts/stage-release-bundle.sh
-NSM_FLOW_ONLY=1 ~/Documents/Claude/labs-downloads/publish.sh
-scripts/publish-update-feed.sh
-```
-
-`release-macos.sh` refuses to continue unless the signing identity and the
-notarytool keychain profile are both present, and it checks the Gatekeeper
-verdict at the end rather than assuming success.
-
-`publish-update-feed.sh` signs each artifact with the updater key and publishes
-the feed that installed copies check. The updater trusts a minisign signature,
-not the installer's own code signature, and the matching public key is pinned in
-`tauri.conf.json` — so a feed signed with any other key is rejected. The private
-key lives only in the macOS login Keychain (`nsm-pass get nsm-flow-updater-key`);
-**if it is lost, no existing installation can ever be updated again.**
-
-## Development
-
-The source is available for audit and internal collaboration. See
-[`BUILD.md`](BUILD.md) for platform dependencies and build details.
-
-Useful checks:
-
-```text
-bun install
-bun run build
-bun run lint
-bun run format:check
-cd src-tauri && cargo fmt --check && cargo test
-```
-
-Google sign-in is enabled at build time with
-`NSM_FLOW_GOOGLE_CLIENT_ID`. An optional
-`NSM_FLOW_ALLOWED_EMAIL_DOMAIN` restricts sign-in to a Google Workspace
-domain. Client IDs are public identifiers; no OAuth client secret is bundled.
-
-The vocabulary migration utility reads only Wispr Flow's local `Dictionary`
-table in read-only mode. It excludes dictation history, recordings, snippets,
-URLs, email addresses, phone-like numbers, and long message text.
-
-## Open-source foundation
-
-NSM Flow began as a fork of
-[Handy](https://github.com/cjpais/Handy), whose application code is MIT
-licensed. The original Handy name, logo, and visual identity are not used.
-The retained MIT license and copyright notice apply to the upstream code.
-
-Additional technical inspiration came from
-[OpenWhispr](https://github.com/HeroTools/open-whispr),
-[OpenLess](https://github.com/Open-Less/openless), and
-[FreeFlow](https://github.com/zachlatta/freeflow).
-
-NSM Flow application additions are developed for Nathaniel School of Music.
+`package.json` uses `private: true` to prevent accidental npm publication. It does
+not restrict the public GitHub source or the MIT license.

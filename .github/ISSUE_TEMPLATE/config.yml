@@ -2,4 +2,4 @@ blank_issues_enabled: true
 contact_links:
   - name: NSM Flow source and releases
     url: https://github.com/jasonzacmusic/nsm-flow
-    about: Review the private Nathaniel repository before opening a duplicate issue.
+    about: Review the NSM Flow repository before opening a duplicate issue.

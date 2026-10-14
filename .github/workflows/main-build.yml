@@ -1,7 +1,7 @@
 name: "NSM Flow Desktop Build"
 
 # The default is the Apple-silicon build used for Jason's Mac. The complete
-# Intel Mac + Windows matrix remains available when a release genuinely needs it.
+# Intel Mac + Windows + Linux matrix remains available when a release genuinely needs it.
 on:
   workflow_dispatch:
     inputs:
@@ -14,6 +14,7 @@ on:
           - "apple-silicon"
           - "all-platforms"
           - "windows-only"
+          - "linux-only"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,7 +22,7 @@ concurrency:
 
 jobs:
   apple-silicon:
-    if: inputs.build_scope != 'windows-only'
+    if: inputs.build_scope == 'apple-silicon' || inputs.build_scope == 'all-platforms'
     permissions:
       contents: write
     uses: ./.github/workflows/build.yml
@@ -65,6 +66,19 @@ jobs:
       platform: ${{ matrix.platform }}
       target: ${{ matrix.target }}
       build-args: ${{ matrix.args }}
+      asset-prefix: "nsm-flow-alpha"
+      upload-artifacts: true
+      sign-binaries: false
+
+  linux:
+    if: inputs.build_scope == 'all-platforms' || inputs.build_scope == 'linux-only'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: "ubuntu-22.04"
+      target: "x86_64-unknown-linux-gnu"
+      build-args: "--bundles deb,rpm,appimage"
       asset-prefix: "nsm-flow-alpha"
       upload-artifacts: true
       sign-binaries: false

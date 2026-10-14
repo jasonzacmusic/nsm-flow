@@ -808,7 +808,11 @@ jobs:
             for rpm_pkg in "${BUNDLE_DIR}"/rpm/*.rpm; do
               echo "Auditing rpm package: ${rpm_pkg}"
               listing="$(mktemp)"
-              rpm -qpl "$rpm_pkg" > "$listing"
+              if ! rpm -qpl "$rpm_pkg" > "$listing" 2>&1; then
+                cat "$listing" >&2
+                echo "ERROR: RPM package query failed" >&2
+                exit 1
+              fi
               require_pattern "$listing" '/usr/bin/nsm-flow$' "NSM Flow binary"
               require_pattern "$listing" '/usr/lib/Handy/libtranscribe\.so\.[0-9]+$' "transcribe runtime library (SONAME)"
               require_pattern "$listing" '/usr/lib/Handy/libggml-cpu.*\.so' "ggml CPU backend module"

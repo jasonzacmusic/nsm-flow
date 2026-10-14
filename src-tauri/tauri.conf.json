@@ -55,7 +55,8 @@
           "libopenblas.so.0()(64bit)"
         ],
         "compression": {
-          "type": "none"
+          "type": "gzip",
+          "level": 6
         },
         "files": {
           "/usr/lib/Handy": "transcribe-libs"

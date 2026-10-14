@@ -17,7 +17,7 @@ on:
           - "linux-only"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.build_scope }}
   cancel-in-progress: true
 
 jobs:

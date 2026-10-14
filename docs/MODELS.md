@@ -125,6 +125,6 @@ their accepted 0.11 dependency.
 collects Cargo/frontend license texts for new Linux packages. This is a packaging
 aid, not a complete certification of native sys-crate contents or downloaded
 weights. Follow applicable MPL, Apache, Unicode, model attribution and platform
-runtime terms. Existing Mac/Windows alpha packages are retained unchanged; a full
+runtime terms. New alpha.4 packages include generated target/frontend license texts. A full
 in-app model-license display and expanded native-component notices remain future
 release work.

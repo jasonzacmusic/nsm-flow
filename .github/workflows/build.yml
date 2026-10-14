@@ -499,8 +499,7 @@ jobs:
       # libtranscribe.so (a NEEDED of `handy`) while bundling. tauri-action
       # reuses this compile incrementally. TRANSCRIBE_LIBDIR is consumed by the
       # AppImage post-processing step to co-locate the dlopen'd ggml modules.
-      - name: Collect target dependency notices (Linux)
-        if: contains(inputs.platform, 'ubuntu')
+      - name: Collect target dependency notices
         run: python3 scripts/collect-licenses.py --target ${{ inputs.target }} --output src-tauri/resources/THIRD_PARTY_NOTICES.txt
 
       - name: Pre-build and locate transcribe-cpp backend libs (Linux)

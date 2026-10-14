@@ -52,27 +52,28 @@ use ordinary apps for the first test.
 
 ## Linux
 
-Linux alpha packages and supported distributions are listed in the README once
-package verification passes. The initial target is **x86_64 Linux with glibc**.
+Download the DEB, RPM or AppImage from the README. The packages are built and
+checked on Ubuntu 22.04; distribution-specific installation and physical audio
+tests remain open. The target is **x86_64 Linux with glibc**.
 Prefer **X11** for the first test. Wayland compositors restrict global shortcuts,
 active-window detection, and simulated paste; behavior varies by desktop.
 Linux hides the recording overlay by default.
 
-For a published Debian/Ubuntu package:
+For Debian/Ubuntu:
 
 ```sh
 sudo apt install ./NSM-Flow-linux-x64.deb
 nsm-flow
 ```
 
-For a published Fedora/RPM package:
+For a compatible RPM distribution (confirm its runtime dependencies first):
 
 ```sh
 sudo dnf install ./NSM-Flow-linux-x64.rpm
 nsm-flow
 ```
 
-For a published AppImage:
+For AppImage:
 
 ```sh
 chmod +x NSM-Flow-linux-x64.AppImage
@@ -115,7 +116,7 @@ is needed for normal dictation. Cloud formatting is optional and may cost money.
 
 ## Verify a download
 
-Download the checksum file from the **same release** as your installer. Compare
+Download `INSTALLERS-SHA256SUMS.txt` from the **same release** as your installer. Compare
 the result for the exact filename; do not compare against a different version.
 
 macOS/Linux:

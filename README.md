@@ -7,25 +7,26 @@ NSM Flow is a desktop app from Nathaniel School of Music, built on
 [Handy](https://github.com/cjpais/Handy). It runs speech models on your computer;
 no subscription, account, or paid API is required for dictation.
 
-**Public alpha: 0.3.0-alpha.3.** macOS and Windows downloads are available now.
-Linux packaging is being verified; see the [audit](docs/AUDIT-2026-10-14.md) for
-actual evidence and remaining device tests. This is desktop software, not an
+**Public alpha: 0.3.0-alpha.4.** Download installers for macOS, Windows x64, and
+Linux x64 below. See the [audit](docs/AUDIT-2026-10-14.md) for verification and
+remaining physical-device tests. This is desktop software, not an
 iOS, Android, or browser app.
 
 ## Download and install
 
-| Computer                             | Download                                                                                                                                                                                                                                                          | Status                               |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Mac with Apple silicon (M1 or newer) | [DMG](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-mac-Apple-Silicon.dmg)                                                                                                                                   | Signed and Apple notarized           |
-| Intel Mac                            | [DMG](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-mac-Intel.dmg)                                                                                                                                           | Signed and Apple notarized           |
-| Windows x64                          | [Setup EXE](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-windows-x64-setup.exe) · [MSI](https://github.com/jasonzacmusic/labs-downloads/releases/download/nsm-flow-v0.3.0-alpha.3/NSM-Flow-windows-x64.msi) | Unsigned alpha; SmartScreen may warn |
-| Linux x64                            | [Build instructions](BUILD.md#linux)                                                                                                                                                                                                                              | Packaged alpha pending verification  |
+| Computer                             | Download                                                                                                                                                                                                                                                                                                                                 | Status                                                        |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Mac with Apple silicon (M1 or newer) | [DMG](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-mac-Apple-Silicon.dmg)                                                                                                                                                                                                                         | Signed and Apple notarized                                    |
+| Intel Mac                            | [DMG](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-mac-Intel.dmg)                                                                                                                                                                                                                                 | Signed and Apple notarized                                    |
+| Windows x64                          | [Setup EXE](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-windows-x64-setup.exe) · [MSI](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-windows-x64.msi)                                                                                                      | Unsigned alpha; SmartScreen may warn                          |
+| Linux x64 (glibc)                    | [DEB](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-linux-x64.deb) · [RPM](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-linux-x64.rpm) · [AppImage](https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-linux-x64.AppImage) | Ubuntu 22.04 build/launch checks; prefer X11; manual upgrades |
 
 Read the **[installation guide](docs/INSTALLATION.md)** for setup, model choice,
 permissions, checksums, and troubleshooting. Download checksums from the
-[matching release](https://github.com/jasonzacmusic/labs-downloads/releases/tag/nsm-flow-v0.3.0-alpha.3).
-The links above use a specific release because `labs-downloads/releases/latest`
-can point to a different Nathaniel product.
+[matching release](https://github.com/jasonzacmusic/nsm-flow/releases/tag/v0.3.0-alpha.4).
+Use `INSTALLERS-SHA256SUMS.txt` for the seven installer downloads above. Linux
+distribution/compositor compatibility and physical Windows/Intel tests remain
+part of this alpha; an automated launch check is not a microphone/paste test.
 
 ## Indian names and music
 

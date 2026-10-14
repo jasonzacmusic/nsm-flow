@@ -4,6 +4,10 @@
 set -euo pipefail
 bundle_dir="${1:?Pass the directory containing deb/ and rpm/}"
 bundle_dir="$(realpath "$bundle_dir")"
+if ! command -v rpmbuild >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y rpm
+fi
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS,payload}

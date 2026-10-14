@@ -81,7 +81,7 @@ sudo apt update
 sudo apt install build-essential cmake pkg-config patchelf libssl-dev \
   libasound2-dev libopenblas-dev libgtk-3-dev libwebkit2gtk-4.1-dev \
   libappindicator3-dev librsvg2-dev libgtk-layer-shell-dev \
-  libx11-dev libxtst-dev libxrandr-dev libvulkan-dev glslc spirv-headers
+  libx11-dev libxtst-dev libxrandr-dev libvulkan-dev glslc spirv-headers rpm cpio
 bun install --frozen-lockfile
 bun run tauri dev
 bun run tauri build -- --bundles deb,rpm,appimage
@@ -92,6 +92,20 @@ release builds dynamically link the official ONNX Runtime 1.24.2 and bundle its
 SONAME library. Linux transcribe/ggml CPU and Vulkan backend modules must be
 packaged together. Existing `/usr/lib/Handy` private library paths and the
 `HANDY_NO_GTK_LAYER_SHELL` environment name remain implementation details.
+
+Before distributing RPM output, package the verified DEB payload with the
+system RPM tools. The pinned Tauri packager's RPM metadata is incompatible with
+the Ubuntu 22.04 extractor; this helper preserves every native file and disables
+stripping:
+
+```sh
+bash scripts/ci/package-linux-rpm.sh src-tauri/target/release/bundle
+NSM_BUNDLE_DIR=src-tauri/target/release/bundle bash scripts/ci/audit-linux-packages.sh
+```
+
+The audit requires a DEB reference, RPM digest validation and identical file
+contents/permissions, then launches each packaged runtime in Xvfb. Follow the
+workflow's library staging and AppImage postprocessing as well.
 
 Install the built package with your package manager; for example:
 

@@ -14,6 +14,9 @@ gh workflow run main-build.yml --ref <commit-or-branch> -f build_scope=all-platf
 The workflow builds Apple silicon, Intel, Windows x64 and Ubuntu 22.04 Linux x64.
 Linux packages must pass bundled-library checks and isolated Xvfb native launch
 checks. Those checks do not prove microphone or Wayland behavior on a real device.
+RPM packaging uses system `rpmbuild` on the unchanged DEB payload, with stripping
+disabled. Its digests, every file/permission/symlink and isolated launch must pass
+before upload. The pinned Tauri-generated RPM is not published directly.
 Mac binaries are built/signed/notarized locally with established credentials;
 Windows retains the documented unsigned-alpha policy.
 
@@ -51,3 +54,9 @@ Update README, installation docs, audit evidence, release notes and applicable
 catalogue metadata together. Preserve the user's installed official version and
 data; do not force-quit an active dictation or unrelated audio session. A source
 push, CI dispatch, or mocked test is not proof of a successful installation.
+
+Alpha.4 Mac/Windows use the immutable source tag; Linux's native build differs
+only in a CI helper and has a separate packaging/verification revision. Publish
+both exact source archives and provenance instead of moving an existing tag or
+rewriting a manifest's build commit. Document which checks occurred on physical
+hardware and which used CI or Rosetta.

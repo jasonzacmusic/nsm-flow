@@ -74,6 +74,8 @@ for d in README.md BUILD.md NOTICE.md LICENSE RELEASE_ACCEPTANCE.md NSM_FLOW_INT
          CLAUDE_CODE_AUDIT_REPORT.md CLAUDE_CODE_AUDIT_PROMPT.md; do
   [ -f "$d" ] && cp "$d" "$STAGE/$BUNDLE/Documents/"
 done
+# Keep README's relative installation/privacy/license links usable offline.
+if [ -d docs ]; then cp -R docs "$STAGE/$BUNDLE/Documents/docs"; fi
 
 {
   echo "NSM Flow $VERSION"

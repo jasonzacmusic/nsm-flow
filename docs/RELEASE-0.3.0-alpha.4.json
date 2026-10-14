@@ -1,0 +1,99 @@
+{
+  "version": "0.3.0-alpha.4",
+  "repositoryPublicAnonymousHTTP200": true,
+  "installers": [
+    {
+      "name": "NSM-Flow-mac-Apple-Silicon.dmg",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-mac-Apple-Silicon.dmg",
+      "sha256": "151b7291e46774c35b8d0062af06c557aace59f151fad9b99ea55516af565c1b",
+      "bytes": 21445056,
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "NSM-Flow-mac-Intel.dmg",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-mac-Intel.dmg",
+      "sha256": "6507ef44d069246a518fa78c4ab3de654102ff9dd7e6a107adf1a614d7d86c84",
+      "bytes": 24716983,
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "NSM-Flow-windows-x64-setup.exe",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-windows-x64-setup.exe",
+      "sha256": "b2bea14683cd746663cda13ffedac73a7422e128da687b68a7040934af731b39",
+      "bytes": 20949229,
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "NSM-Flow-windows-x64.msi",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-windows-x64.msi",
+      "sha256": "2ed90b0cd1f45e80e85f96cd03c4c283be85821206a180b4b5e6b8b16e86b434",
+      "bytes": 45133824,
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "NSM-Flow-linux-x64.deb",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-linux-x64.deb",
+      "sha256": "ce21f7053cbc8515db5727135b1ecb32d88a56f1c306aca6715e940107b9555a",
+      "bytes": 48190168,
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "NSM-Flow-linux-x64.rpm",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-linux-x64.rpm",
+      "sha256": "1968cf86da740aad70b50c077cbb7b778d7bec35b7d3e710c341e72e8aecf35b",
+      "bytes": 47738446,
+      "anonymousDownloadVerified": true
+    },
+    {
+      "name": "NSM-Flow-linux-x64.AppImage",
+      "url": "https://github.com/jasonzacmusic/nsm-flow/releases/download/v0.3.0-alpha.4/NSM-Flow-linux-x64.AppImage",
+      "sha256": "d7545f219b130600c4220b54f2a89ff19b83743698b477c77982b64891d31914",
+      "bytes": 159130816,
+      "anonymousDownloadVerified": true
+    }
+  ],
+  "channel": "public alpha",
+  "releaseURL": "https://github.com/jasonzacmusic/nsm-flow/releases/tag/v0.3.0-alpha.4",
+  "applicationSourceMacWindows": "7a3254086f29caa659b3ba613625c62d9c1d1317",
+  "linuxNativeSource": "d1b52b41961b41a63c232a0731532444b9587686",
+  "linuxPackagingVerificationSource": "866acd65e6213b0e66553eed391a1228c25651b9",
+  "windowsRun": "https://github.com/jasonzacmusic/nsm-flow/actions/runs/38533671343",
+  "linuxRun": "https://github.com/jasonzacmusic/nsm-flow/actions/runs/38538768845",
+  "macInstallers": "Developer ID signed, Apple notarized and stapled",
+  "windowsInstallers": "unsigned",
+  "linuxUpdates": "manual",
+  "signedFeed": "https://jasonzacmusic.github.io/labs-downloads/appcasts/nsm-flow.json",
+  "liveFeedExactPreparedBytes": true,
+  "labsReleaseAll16HashesVerified": true,
+  "updaterSignaturesVerified": 3,
+  "tamperedInstallerRejected": true,
+  "installed": {
+    "version": "0.3.0-alpha.4",
+    "fromVersion": "0.3.0-alpha.3",
+    "actualUpdateButtonClicked": true,
+    "executableSHA256": "f128e1b3e24d67ba5fc1f606e30110d59fda0f31f0206366581128bfb51be060",
+    "exactPublishedExecutable": true,
+    "userPreferencesPreserved": true,
+    "historyRowsUnchanged": true,
+    "existingModelFilesRetained": 4,
+    "signatureNotarizationGatekeeperAccepted": true,
+    "os": "macOS 26.6.2",
+    "hardware": "Apple M1 Pro",
+    "nativeReferenceClipSeconds": 11,
+    "nativeInferenceMilliseconds": 1210
+  },
+  "tests": {
+    "nativeRust": 171,
+    "mockedBrowserIPC": 8,
+    "pythonReleaseMigration": 4,
+    "frontendBuildLintFormatLocales": "passed"
+  },
+  "limits": [
+    "Physical microphone, shortcut and paste acceptance remains unverified on Windows, Intel Macs and Linux",
+    "Rosetta inference does not establish physical Intel hardware acceptance",
+    "Linux distro/Wayland compatibility remains unverified; ARM and musl are not release targets",
+    "Indian vocabulary support is not a trained NSM acoustic model or broad accent benchmark",
+    "RustSec findings and maintenance warnings remain documented in the audit",
+    "Optional remote AI sends transcript text to that provider; separate charges and licenses may apply"
+  ]
+}

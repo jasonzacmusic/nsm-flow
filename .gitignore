@@ -52,3 +52,15 @@ result
 
 # Release archive verification build output
 /scripts/updater-archive-check/target/
+
+# Local secrets and signing materials
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.pem
+*.key
+
+# Target-specific release license collection
+src-tauri/resources/THIRD_PARTY_NOTICES.txt

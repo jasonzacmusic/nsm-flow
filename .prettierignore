@@ -22,3 +22,6 @@ src-tauri/src/catalog/catalog.json
 
 # Local tool caches (git-excluded, never committed)
 .impeccable
+
+# Vendored upstream source/license texts
+vendor/

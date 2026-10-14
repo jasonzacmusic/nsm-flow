@@ -1,3 +1,5 @@
+> Historical audit and small fixture results. For the current public-release audit, see [docs/AUDIT-2026-10-14.md](docs/AUDIT-2026-10-14.md).
+
 # NSM Flow 0.3.0-alpha.1 — Independent Audit Report
 
 **Auditor:** Claude Code (independent pass, working directory `nsm-flow`, branch

@@ -1,3 +1,6 @@
+#[cfg(target_os = "linux")]
+use active_win_pos_linux::get_active_window;
+#[cfg(not(target_os = "linux"))]
 use active_win_pos_rs::get_active_window;
 use once_cell::sync::Lazy;
 use regex::Regex;

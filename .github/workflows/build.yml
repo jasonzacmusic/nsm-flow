@@ -770,7 +770,13 @@ jobs:
             # on the headless --list-devices path, which fails without a display.
             HANDY_NO_GTK_LAYER_SHELL=1 \
             LD_LIBRARY_PATH="${root}/usr/lib/Handy:${root}/usr/lib" \
-              xvfb-run -a "${root}/usr/bin/nsm-flow" --list-devices >/tmp/handy-package-smoke.log
+              xvfb-run -a "${root}/usr/bin/nsm-flow" --list-devices >/tmp/handy-package-smoke.log || {
+                cat /tmp/handy-package-smoke.log >&2
+                echo "ERROR: ${label} packaged binary failed to launch" >&2
+                return 1
+              }
+            cat /tmp/handy-package-smoke.log
+            grep -q 'kind=cpu' /tmp/handy-package-smoke.log
             echo "${label} --list-devices smoke passed"
           }
 
@@ -827,7 +833,12 @@ jobs:
               fi
               root="$(mktemp -d)"
               rpm_path="$(realpath "$rpm_pkg")"
-              (cd "$root" && rpm2cpio "$rpm_path" | cpio -idm --quiet)
+              echo "Extracting RPM into ${root}"
+              (cd "$root" && rpm2cpio "$rpm_path" | cpio -idm --no-preserve-owner) || {
+                echo "ERROR: RPM extraction failed" >&2
+                exit 1
+              }
+              echo "Launching RPM binary"
               smoke_binary "$root" "rpm"
               rm -rf "$root" "$listing"
             done
@@ -860,6 +871,17 @@ jobs:
               rm -rf "$workdir"
             done
           fi
+
+      - name: Upload diagnostic Linux packages after a failed check
+        if: failure() && inputs.upload-artifacts && contains(inputs.platform, 'ubuntu')
+        uses: actions/upload-artifact@v7
+        with:
+          name: diagnostic-linux-${{ inputs.target }}
+          path: |
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/deb/*.deb
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/rpm/*.rpm
+            src-tauri/target/${{ steps.build-profile.outputs.profile }}/bundle/appimage/*.AppImage
+          retention-days: 7
 
       - name: Upload artifacts (Linux)
         if: inputs.upload-artifacts && contains(inputs.platform, 'ubuntu')

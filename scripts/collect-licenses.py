@@ -16,7 +16,7 @@ def collect(target):
     metadata = json.loads(subprocess.check_output([
         "cargo", "metadata", "--manifest-path", str(ROOT / "src-tauri/Cargo.toml"),
         "--locked", "--format-version", "1", "--filter-platform", target,
-    ], text=True))
+    ], text=True, encoding="utf-8"))
     packages = {p["id"]: p for p in metadata["packages"]}
     graph = {n["id"]: n["dependencies"] for n in metadata["resolve"]["nodes"]}
     pending = [metadata["resolve"]["root"]]
@@ -42,14 +42,14 @@ def main():
     if forbidden:
         raise SystemExit("GPL-only packages require a licensing review: " + ", ".join(forbidden))
     chunks = ["NSM Flow third-party license collection\nTarget: " + args.target,
-              "Application MIT license:\n" + (ROOT / "LICENSE").read_text(),
-              (ROOT / "NOTICE.md").read_text()]
+              "Application MIT license:\n" + (ROOT / "LICENSE").read_text(encoding="utf-8"),
+              (ROOT / "NOTICE.md").read_text(encoding="utf-8")]
     for package in packages:
         directory = Path(package["manifest_path"]).parent
         texts = []
         for path in sorted(directory.iterdir()):
             if path.is_file() and path.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT")):
-                texts.append(path.name + "\n" + path.read_text(errors="replace"))
+                texts.append(path.name + "\n" + path.read_text(encoding="utf-8", errors="replace"))
         chunks.append("\n".join([
             package["name"] + " " + package["version"],
             "Declared license: " + (package.get("license") or "see upstream license files"),
@@ -62,15 +62,15 @@ def main():
         for manifest in sorted(frontend.glob("**/package.json")):
             if "/.cache/" in str(manifest):
                 continue
-            package = json.loads(manifest.read_text())
+            package = json.loads(manifest.read_text(encoding="utf-8"))
             texts = []
             for path in sorted(manifest.parent.iterdir()):
                 if path.is_file() and path.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE", "COPYRIGHT")):
-                    texts.append(path.name + "\n" + path.read_text(errors="replace"))
+                    texts.append(path.name + "\n" + path.read_text(encoding="utf-8", errors="replace"))
             if texts:
                 chunks.append("\n".join(["Frontend: " + package.get("name", "unknown") + " " + package.get("version", ""), *texts]))
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text("\n\n".join(chunks) + "\n")
+    args.output.write_text("\n\n".join(chunks) + "\n", encoding="utf-8")
     print(f"Collected {len(packages)} target Cargo packages and frontend license texts into {args.output}")
 
 

@@ -51,6 +51,8 @@ smoke_binary() {
   echo "${label} --list-devices smoke passed"
 }
 
+payload_reference="$(mktemp -d)"
+trap 'rm -rf "$payload_reference"' EXIT
 if compgen -G "${BUNDLE_DIR}/deb/*.deb" > /dev/null; then
   for deb in "${BUNDLE_DIR}"/deb/*.deb; do
     echo "Auditing deb package: ${deb}"
@@ -73,6 +75,7 @@ if compgen -G "${BUNDLE_DIR}/deb/*.deb" > /dev/null; then
     root="$(mktemp -d)"
     dpkg-deb -x "$deb" "$root"
     smoke_binary "$root" "deb"
+    cp -a "$root"/. "$payload_reference"/
     rm -rf "$root" "$listing"
   done
 fi
@@ -111,6 +114,18 @@ if compgen -G "${BUNDLE_DIR}/rpm/*.rpm" > /dev/null; then
     rpm2cpio "$rpm_path" > "$archive"
     (cd "$root" && cpio -idm --no-preserve-owner < "$archive")
     rm -f "$archive"
+    python3 - "$payload_reference" "$root" <<'PYVERIFY'
+import hashlib, pathlib, stat, sys
+
+def inventory(root):
+    result = {}
+    for p in root.rglob('*'):
+        if p.is_symlink(): result[str(p.relative_to(root))] = ('link', p.readlink().as_posix())
+        elif p.is_file(): result[str(p.relative_to(root))] = ('file', hashlib.sha256(p.read_bytes()).hexdigest(), stat.S_IMODE(p.stat().st_mode))
+    return result
+assert inventory(pathlib.Path(sys.argv[1])) == inventory(pathlib.Path(sys.argv[2])), 'RPM payload differs from verified DEB files'
+print('Every RPM file, permission and symlink matches the DEB payload')
+PYVERIFY
     echo "Launching RPM binary"
     smoke_binary "$root" "rpm"
     rm -rf "$root" "$listing"

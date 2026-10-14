@@ -43,10 +43,10 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-0 libgtk-3-0 \
             libayatana-appindicator3-1 libasound2 libxdo3 libgtk-layer-shell0 \
             libopenblas0 libvulkan1 xvfb rpm cpio
-      - name: Repair unsigned RPM payload digest metadata
+      - name: Package the unchanged payload with system RPM tools
         run: |
           set -euo pipefail
-          python3 scripts/ci/repair-rpm-digests.py packages/rpm/*.rpm | tee packages/rpm-digest-repair.json
+          bash scripts/ci/package-linux-rpm.sh packages
       - name: Verify all three final packages
         env:
           NSM_BUNDLE_DIR: packages
@@ -79,7 +79,7 @@ jobs:
                       'buildRun': f"https://github.com/{repo}/actions/runs/{os.environ['SOURCE_RUN']}",
                       'verificationCommit': os.environ['GITHUB_SHA'],
                       'verificationRun': f"https://github.com/{repo}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
-                      'rpmDigestRepair': json.loads(pathlib.Path('packages/rpm-digest-repair.json').read_text()),
+                      'rpmPackaging': 'System rpmbuild from the unchanged DEB payload; no stripping; full file-content comparison',
                       'checks': 'All three packages: private runtime libraries, extraction, isolated Xvfb launch and CPU backend; RPM digest verification'}
           (out / 'provenance-x86_64-unknown-linux-gnu.json').write_text(json.dumps(manifest, indent=2) + '\n')
           PY

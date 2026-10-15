@@ -66,12 +66,93 @@ const TRANSCRIPTION_FIELD: &str = "transcription";
 /// Strip invisible Unicode characters that some LLMs may insert
 fn strip_invisible_chars(s: &str) -> String {
     s.replace(['\u{200B}', '\u{200C}', '\u{200D}', '\u{FEFF}'], "")
+        .lines()
+        .map(str::trim_end)
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Build a system prompt from the user's prompt template.
 /// Removes `${output}` placeholder since the transcription is sent as the user message.
 fn build_system_prompt(prompt_template: &str) -> String {
-    prompt_template.replace("${output}", "").trim().to_string()
+    prompt_template
+        .replace(crate::settings::TRANSCRIPT_SLOT, "")
+        .replace("${output}", "")
+        .trim()
+        .to_string()
+}
+
+/// Adds the user's email sign-off to the email rules, ahead of the transcript
+/// so the model reads it as an instruction.
+fn is_local_provider(provider: &crate::settings::PostProcessProvider) -> bool {
+    let url = provider.base_url.to_ascii_lowercase();
+    url.contains("://localhost") || url.contains("://127.0.0.1") || url.contains("://[::1]")
+}
+
+/// Asks a local Ollama server to load the formatting model while the speaker is
+/// still talking, and to keep it loaded for half an hour, so the rewrite does not
+/// wait for the model to load. Servers that are not Ollama ignore the request.
+fn warm_local_llm(settings: &AppSettings) {
+    if !settings.post_process_enabled {
+        return;
+    }
+    let Some(provider) = settings.active_post_process_provider() else {
+        return;
+    };
+    let model = settings
+        .post_process_models
+        .get(&provider.id)
+        .cloned()
+        .unwrap_or_default();
+    if !is_local_provider(provider) || model.trim().is_empty() {
+        return;
+    }
+    let base = provider.base_url.trim_end_matches('/');
+    let url = format!("{}/api/generate", base.strip_suffix("/v1").unwrap_or(base));
+    tauri::async_runtime::spawn(async move {
+        let body = serde_json::json!({ "model": model, "keep_alive": "30m" });
+        if let Err(error) = reqwest::Client::new()
+            .post(&url)
+            .timeout(Duration::from_secs(20))
+            .json(&body)
+            .send()
+            .await
+        {
+            debug!("Local model warm-up skipped: {}", error);
+        }
+    });
+}
+
+/// Adds the sign-off to an email written without the AI, unless one is already there.
+fn append_email_signoff(text: &str, signoff: &str) -> String {
+    let signoff = signoff.trim();
+    let first_line = signoff.lines().next().unwrap_or_default().trim();
+    if signoff.is_empty()
+        || text.trim().is_empty()
+        || text.to_lowercase().contains(&first_line.to_lowercase())
+    {
+        return text.to_string();
+    }
+    format!("{}\n\n{signoff}", text.trim_end())
+}
+
+fn with_email_signoff(prompt: String, signoff: &str) -> String {
+    let signoff = signoff.trim();
+    if signoff.is_empty() {
+        return prompt;
+    }
+    let rule = format!(
+        "\n- End the email with exactly this sign-off, line for line, unless the speaker dictated their own sign-off:\n{signoff}"
+    );
+    if prompt.contains(crate::settings::TRANSCRIPT_SLOT) {
+        prompt.replacen(
+            crate::settings::TRANSCRIPT_SLOT,
+            &format!("{rule}{}", crate::settings::TRANSCRIPT_SLOT),
+            1,
+        )
+    } else {
+        format!("{prompt}{rule}")
+    }
 }
 
 /// Returns `true` when a transcription has no meaningful content to
@@ -118,6 +199,11 @@ async fn post_process_transcription(
     }
 
     let local_fallback = local_format(transcription, mode);
+    let local_fallback = if mode == WritingMode::Email {
+        append_email_signoff(&local_fallback, &settings.email_signoff)
+    } else {
+        local_fallback
+    };
 
     let provider = match settings.active_post_process_provider().cloned() {
         Some(provider) => provider,
@@ -138,6 +224,13 @@ async fn post_process_transcription(
             "Post-processing skipped because provider '{}' has no model configured",
             provider.id
         );
+        return Some(local_fallback);
+    }
+
+    // A model on this computer takes a second or more, so plain dictation keeps the
+    // instant local cleanup and only corrections, lists and emails wait for it.
+    if is_local_provider(&provider) && !crate::writing_mode::needs_ai_rewrite(transcription, mode) {
+        debug!("Local model skipped: nothing in this dictation needs a rewrite");
         return Some(local_fallback);
     }
 
@@ -163,6 +256,12 @@ async fn post_process_transcription(
         debug!("Post-processing skipped because the selected prompt is empty");
         return Some(local_fallback);
     }
+
+    let prompt = if mode == WritingMode::Email {
+        with_email_signoff(prompt, &settings.email_signoff)
+    } else {
+        prompt
+    };
 
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",
@@ -480,6 +579,10 @@ impl ShortcutAction for TranscribeAction {
         let start_time = Instant::now();
         debug!("TranscribeAction::start called for binding: {}", binding_id);
         capture_active_writing_mode();
+
+        if self.post_process {
+            warm_local_llm(&get_settings(app));
+        }
 
         // Load model in the background
         let tm = app.state::<Arc<TranscriptionManager>>();
@@ -956,13 +1059,50 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 
 #[cfg(test)]
 mod tests {
-    use super::{complete_unless_cancelled, is_blank_transcription, should_use_streaming_overlay};
+    use super::{
+        append_email_signoff, build_system_prompt, complete_unless_cancelled,
+        is_blank_transcription, should_use_streaming_overlay, with_email_signoff,
+    };
     use crate::settings::OverlayStyle;
     use std::future;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
     use std::thread;
     use std::time::Duration;
+
+    #[test]
+    fn email_signoff_is_an_instruction_before_the_transcript() {
+        let template = format!("Write an email.{}", crate::settings::TRANSCRIPT_SLOT);
+        let prompt = with_email_signoff(
+            template.clone(),
+            "Warm regards,\n\nJason Zac\nDirector\nNathaniel School of Music",
+        );
+        let signoff_at = prompt.find("Warm regards,").expect("sign-off included");
+        let transcript_at = prompt.find("<transcript>").expect("slot kept");
+        assert!(signoff_at < transcript_at);
+        assert!(prompt.contains("Jason Zac\nDirector\nNathaniel School of Music"));
+        assert_eq!(with_email_signoff(template.clone(), "   "), template);
+    }
+
+    #[test]
+    fn local_emails_get_the_signoff_once() {
+        let signoff = "Warm regards,\n\nJason Zac";
+        assert_eq!(
+            append_email_signoff("Hi Priya,\n\nSee you Friday.", signoff),
+            "Hi Priya,\n\nSee you Friday.\n\nWarm regards,\n\nJason Zac"
+        );
+        assert_eq!(
+            append_email_signoff("See you.\n\nWarm regards,\nJason", signoff),
+            "See you.\n\nWarm regards,\nJason"
+        );
+        assert_eq!(append_email_signoff("See you.", ""), "See you.");
+    }
+
+    #[test]
+    fn structured_system_prompt_drops_the_transcript_slot() {
+        let template = format!("Rules here.{}", crate::settings::TRANSCRIPT_SLOT);
+        assert_eq!(build_system_prompt(&template), "Rules here.");
+    }
 
     #[test]
     fn blank_transcription_is_detected() {

@@ -371,6 +371,11 @@
       }
     },
     "postProcessing": {
+      "emailSignoff": {
+        "title": "Email sign-off",
+        "description": "Added to the end of every email you dictate, just before your email app's signature. Leave empty for none.",
+        "placeholder": "Warm regards,\n\nYour Name"
+      },
       "hotkey": {
         "title": "Hotkey"
       },

@@ -441,6 +441,37 @@ export const PostProcessingSettingsPrompts = React.memo(
 );
 PostProcessingSettingsPrompts.displayName = "PostProcessingSettingsPrompts";
 
+const EmailSignoffSettingComponent: React.FC = () => {
+  const { t } = useTranslation();
+  const { getSetting, updateSetting, isUpdating } = useSettings();
+  const saved = getSetting("email_signoff") ?? "";
+  const [draft, setDraft] = useState(saved);
+
+  useEffect(() => {
+    setDraft(saved);
+  }, [saved]);
+
+  return (
+    <SettingContainer
+      title={t("settings.postProcessing.emailSignoff.title")}
+      description={t("settings.postProcessing.emailSignoff.description")}
+      descriptionMode="inline"
+      layout="stacked"
+      grouped={true}
+    >
+      <Textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          if (draft !== saved) updateSetting("email_signoff", draft);
+        }}
+        disabled={isUpdating("email_signoff")}
+        placeholder={t("settings.postProcessing.emailSignoff.placeholder")}
+      />
+    </SettingContainer>
+  );
+};
+
 export const PostProcessingSettings: React.FC = () => {
   const { t } = useTranslation();
 
@@ -460,6 +491,7 @@ export const PostProcessingSettings: React.FC = () => {
 
       <SettingsGroup title={t("settings.postProcessing.prompts.title")}>
         <PostProcessingSettingsPrompts />
+        <EmailSignoffSettingComponent />
       </SettingsGroup>
     </div>
   );

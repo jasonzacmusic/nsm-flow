@@ -99,8 +99,12 @@ fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<Header
 /// Create an HTTP client with provider-specific headers
 fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwest::Client, String> {
     let headers = build_headers(provider, api_key)?;
+    // Dictation waits on this request, so a stalled provider must give up
+    // and fall back to the plain transcript instead of hanging.
     reqwest::Client::builder()
         .default_headers(headers)
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }

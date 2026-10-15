@@ -58,6 +58,18 @@ static EMAIL_SUBJECT_LINE: Lazy<Regex> = Lazy::new(|| {
 /// Requiring a note name from A-G keeps normal prose such as "a flat fee" or
 /// "a sharp reply" unchanged. An optional numeric octave is joined to the
 /// pitch, so "F sharp 4" becomes "F♯4".
+/// Spoken cues that only an AI rewrite can act on: self-corrections and lists.
+static NEEDS_REWRITE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)\b(?:sorry|i mean|i meant|actually|no wait|wait no|scratch that|delete that|ignore that|strike that|rather|correction|let me rephrase|first(?:ly)?|second(?:ly)?|number one|bullet|bullets|list)\b",
+    )
+    .expect("valid rewrite cue regex")
+});
+
+/// Three or more comma-separated items ending in "and"/"or", e.g. "milk, eggs and bread".
+static SPOKEN_SERIES: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)[^,.]+,[^,.]+,?\s+(?:and|or)\s+\S").expect("valid series regex"));
+
 static MUSICAL_NOTE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r"(?i)\b([a-g])[ \t]+(double[ \t]+flat|double[ \t]+sharp|flat|sharp|natural)(?:[ \t]+(-?\d+))?\b",
@@ -647,6 +659,18 @@ pub fn resolve_prompt_id(selected_prompt_id: Option<&str>, mode: WritingMode) ->
     }
 }
 
+/// Whether a dictation needs an AI rewrite rather than the instant local cleanup.
+/// Emails always do (greeting, paragraphs, sign-off); anything else only when the
+/// speaker corrected themselves or listed things.
+pub fn needs_ai_rewrite(transcription: &str, mode: WritingMode) -> bool {
+    if mode == WritingMode::Code {
+        return false;
+    }
+    mode == WritingMode::Email
+        || NEEDS_REWRITE.is_match(transcription)
+        || SPOKEN_SERIES.is_match(transcription)
+}
+
 /// Safe local cleanup used when no LLM is configured. It only applies explicit
 /// spoken formatting commands and whitespace normalization; it never invents
 /// content or uploads text.
@@ -679,7 +703,28 @@ pub fn local_format(transcription: &str, mode: WritingMode) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{classify, local_format, resolve_prompt_id, WritingMode};
+    use super::{classify, local_format, needs_ai_rewrite, resolve_prompt_id, WritingMode};
+
+    #[test]
+    fn plain_dictation_skips_the_ai_rewrite() {
+        assert!(!needs_ai_rewrite(
+            "See you at the studio at five.",
+            WritingMode::Messaging
+        ));
+        assert!(needs_ai_rewrite(
+            "The exam is on the twelfth, sorry, the fourteenth.",
+            WritingMode::General
+        ));
+        assert!(needs_ai_rewrite(
+            "Bring your books, your metronomes and your slips.",
+            WritingMode::Messaging
+        ));
+        assert!(needs_ai_rewrite(
+            "Hi Priya, see you soon.",
+            WritingMode::Email
+        ));
+        assert!(!needs_ai_rewrite("let x, y and z", WritingMode::Code));
+    }
 
     #[test]
     fn recognises_nsm_work_contexts() {

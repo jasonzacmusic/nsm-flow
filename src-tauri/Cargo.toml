@@ -1,6 +1,6 @@
 [package]
 name = "nsm-flow"
-version = "0.3.0-alpha.5"
+version = "0.3.0-alpha.6"
 description = "Free, local-first voice dictation with Indian vocabulary support"
 authors = ["Jason Zac", "Nathaniel School of Music"]
 edition = "2021"

@@ -9,6 +9,10 @@ use tauri::{AppHandle, Manager};
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const RELEASE_GRACE: Duration = Duration::from_millis(50);
+/// Only X11 (the Tauri shortcut backend on Linux) turns a held key into
+/// release/press pairs. handy-keys on macOS and Windows reports a held key as
+/// one press, so there a quick second press is a real double tap, not a repeat.
+const ABSORB_AUTOREPEAT_RELEASES: bool = cfg!(target_os = "linux");
 /// A push-to-talk press shorter than this is a tap, not a hold.
 const TAP_MAX: Duration = Duration::from_millis(250);
 /// After a tap, a second press within this window turns on hands-free.
@@ -34,6 +38,9 @@ enum Command {
         hotkey_string: String,
         is_pressed: bool,
         push_to_talk: bool,
+        /// When the key moved. Starting the microphone blocks this thread for
+        /// ~200ms, so timing must not depend on when the event is processed.
+        at: Instant,
     },
     Cancel {
         recording_was_active: bool,
@@ -98,7 +105,12 @@ impl HoldOrDoubleTap {
         if !recording_this {
             return PttDecision::Nothing;
         }
-        if self.second_tap_deadline.take().is_some() {
+        if let Some(deadline) = self.second_tap_deadline.take() {
+            if now > deadline {
+                // Too late to be a double tap; the earlier lone tap is discarded.
+                *self = Self::default();
+                return PttDecision::Cancel;
+            }
             self.hands_free = true;
             self.swallow_release = true;
             PttDecision::Nothing
@@ -255,6 +267,7 @@ impl TranscriptionCoordinator {
                             hotkey_string,
                             is_pressed,
                             push_to_talk,
+                            at,
                         } => {
                             if update.0 {
                                 debug!("Ignoring dictation input while an approved update is installing");
@@ -268,13 +281,18 @@ impl TranscriptionCoordinator {
                                 _ => None,
                             };
 
-                            match classify_ptt_event(
-                                pending_release_binding,
-                                is_pressed,
-                                push_to_talk,
-                                &binding_id,
-                                recording_binding,
-                            ) {
+                            let ptt_action = if ABSORB_AUTOREPEAT_RELEASES {
+                                classify_ptt_event(
+                                    pending_release_binding,
+                                    is_pressed,
+                                    push_to_talk,
+                                    &binding_id,
+                                    recording_binding,
+                                )
+                            } else {
+                                PttAction::Passthrough
+                            };
+                            match ptt_action {
                                 PttAction::CancelRelease => {
                                     pending_release = None;
                                     continue;
@@ -283,7 +301,7 @@ impl TranscriptionCoordinator {
                                     pending_release = Some(PendingRelease {
                                         binding_id,
                                         hotkey_string,
-                                        deadline: Instant::now() + RELEASE_GRACE,
+                                        deadline: at + RELEASE_GRACE,
                                     });
                                     continue;
                                 }
@@ -293,8 +311,10 @@ impl TranscriptionCoordinator {
                             // Debounce rapid-fire press events (key repeat / double-tap).
                             // Push-to-talk releases may be deferred above to absorb X11 auto-repeat.
                             if is_pressed {
-                                let now = Instant::now();
-                                if last_press.is_some_and(|t| now.duration_since(t) < DEBOUNCE) {
+                                let now = at;
+                                if last_press
+                                    .is_some_and(|t| now.saturating_duration_since(t) < DEBOUNCE)
+                                {
                                     debug!("Debounced press for '{binding_id}'");
                                     continue;
                                 }
@@ -306,9 +326,9 @@ impl TranscriptionCoordinator {
                                 let recording_this =
                                     matches!(&stage, Stage::Recording(id) if id == &binding_id);
                                 let decision = if is_pressed {
-                                    hold_or_tap.press(Instant::now(), idle, recording_this)
+                                    hold_or_tap.press(at, idle, recording_this)
                                 } else {
-                                    hold_or_tap.release(Instant::now(), recording_this)
+                                    hold_or_tap.release(at, recording_this)
                                 };
                                 match decision {
                                     PttDecision::Start => {
@@ -317,7 +337,11 @@ impl TranscriptionCoordinator {
                                     PttDecision::Stop => {
                                         stop(&app, &mut stage, &binding_id, &hotkey_string)
                                     }
-                                    PttDecision::Cancel | PttDecision::Nothing => {}
+                                    PttDecision::Cancel => {
+                                        crate::utils::cancel_current_operation(&app);
+                                        stage = Stage::Idle;
+                                    }
+                                    PttDecision::Nothing => {}
                                 }
                             } else if is_pressed {
                                 match &stage {
@@ -407,6 +431,7 @@ impl TranscriptionCoordinator {
                 hotkey_string: hotkey_string.to_string(),
                 is_pressed,
                 push_to_talk,
+                at: Instant::now(),
             })
             .is_err()
         {
@@ -715,6 +740,36 @@ mod tests {
         // Idle again: the next press is a fresh hold.
         assert_eq!(k.press(ms(t, 600), true, false), PttDecision::Start);
         assert_eq!(k.release(ms(t, 2000), true), PttDecision::Stop);
+    }
+
+    /// Starting the microphone blocks the coordinator, so a quick second tap is
+    /// read only after the first one finished. Event times, not read times,
+    /// decide whether it was a double tap.
+    #[test]
+    fn a_double_tap_read_late_still_counts_by_when_the_keys_moved() {
+        let t = Instant::now();
+        let mut k = HoldOrDoubleTap::default();
+        assert_eq!(k.press(t, true, false), PttDecision::Start);
+        // All three read ~200ms later, but they happened within 160ms.
+        assert_eq!(k.release(ms(t, 60), true), PttDecision::Nothing);
+        assert_eq!(k.press(ms(t, 140), false, true), PttDecision::Nothing);
+        assert_eq!(k.release(ms(t, 160), true), PttDecision::Nothing);
+        assert_eq!(k.expire(ms(t, 2000), true), PttDecision::Nothing);
+        assert_eq!(k.press(ms(t, 4000), false, true), PttDecision::Stop);
+    }
+
+    #[test]
+    fn a_second_press_after_the_window_is_not_a_double_tap() {
+        let t = Instant::now();
+        let mut k = HoldOrDoubleTap::default();
+        k.press(t, true, false);
+        k.release(ms(t, 100), true);
+        assert_eq!(k.press(ms(t, 600), false, true), PttDecision::Cancel);
+    }
+
+    #[test]
+    fn held_keys_are_only_merged_on_linux() {
+        assert_eq!(ABSORB_AUTOREPEAT_RELEASES, cfg!(target_os = "linux"));
     }
 
     /// Initial press plus several synthesized release/press pairs, as X11 emits

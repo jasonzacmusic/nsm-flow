@@ -43,6 +43,14 @@ static INDIA_CORE_ALIAS_KEYS: Lazy<Vec<(String, &'static str)>> = Lazy::new(|| {
 });
 
 fn build_custom_word_match_keys(word: &str, word_index: usize) -> Vec<CustomWordMatchKey> {
+    // Chord and note spellings such as "A♭" or "Bm7♭5" come from the music
+    // formatter when the speaker says "A flat". As fuzzy targets their keys
+    // shrink to ordinary words ("A♭" -> "a"), which turned "a payment" into
+    // "A♭ payment".
+    if word.contains(MUSIC_SYMBOLS) {
+        return Vec::new();
+    }
+
     let primary_key = build_match_key(word);
     let mut keys = Vec::with_capacity(2);
 
@@ -69,6 +77,8 @@ fn build_custom_word_match_keys(word: &str, word_index: usize) -> Vec<CustomWord
 
     keys
 }
+
+const MUSIC_SYMBOLS: &[char] = &['♭', '♯', '♮', '𝄫', '𝄪', 'ø', '°'];
 
 fn is_supported_fuzzy_key(key: &str) -> bool {
     !key.is_empty() && key.chars().all(|c| c.is_ascii_alphanumeric())
@@ -592,6 +602,15 @@ mod tests {
         let custom_words = vec!["Hello".to_string(), "World".to_string()];
         let result = apply_custom_words(text, &custom_words, 0.5);
         assert_eq!(result, "Hello World");
+    }
+
+    #[test]
+    fn chord_spellings_never_replace_ordinary_words() {
+        let custom_words = ["A♭", "B♭", "E♭", "A♯", "Aø", "A°7", "C♯", "Zac"]
+            .map(String::from)
+            .to_vec();
+        let text = "It's just a payment for a class, see you at E.";
+        assert_eq!(apply_custom_words(text, &custom_words, 0.18), text);
     }
 
     #[test]

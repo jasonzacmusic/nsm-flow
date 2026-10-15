@@ -660,8 +660,8 @@ pub fn resolve_prompt_id(selected_prompt_id: Option<&str>, mode: WritingMode) ->
 }
 
 /// Whether a dictation needs an AI rewrite rather than the instant local cleanup.
-/// Emails always do (greeting, paragraphs, sign-off); anything else only when the
-/// speaker corrected themselves or listed things.
+/// Emails always do (greeting, paragraphs, sign-off), as do corrections, lists and
+/// any full sentence, which the AI also proofreads. Short phrases stay instant.
 pub fn needs_ai_rewrite(transcription: &str, mode: WritingMode) -> bool {
     if mode == WritingMode::Code {
         return false;
@@ -669,7 +669,10 @@ pub fn needs_ai_rewrite(transcription: &str, mode: WritingMode) -> bool {
     mode == WritingMode::Email
         || NEEDS_REWRITE.is_match(transcription)
         || SPOKEN_SERIES.is_match(transcription)
+        || transcription.split_whitespace().count() >= AUTOCORRECT_MIN_WORDS
 }
+
+const AUTOCORRECT_MIN_WORDS: usize = 8;
 
 /// Safe local cleanup used when no LLM is configured. It only applies explicit
 /// spoken formatting commands and whitespace normalization; it never invents
@@ -708,7 +711,11 @@ mod tests {
     #[test]
     fn plain_dictation_skips_the_ai_rewrite() {
         assert!(!needs_ai_rewrite(
-            "See you at the studio at five.",
+            "See you at five.",
+            WritingMode::Messaging
+        ));
+        assert!(needs_ai_rewrite(
+            "There is no payment plan as such, it is just one payment.",
             WritingMode::Messaging
         ));
         assert!(needs_ai_rewrite(

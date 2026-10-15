@@ -477,7 +477,11 @@ fn default_model() -> String {
     "".to_string()
 }
 
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 5;
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 6;
+
+/// Plain Escape is too easy to hit mid-sentence and is wanted by other apps, so
+/// throwing a recording away takes Shift+Escape.
+const DEFAULT_CANCEL_SHORTCUT: &str = "shift+escape";
 const INDIA_CORE_LEXICON: &str = include_str!("../resources/lexicons/india-core.txt");
 
 fn default_settings_schema_version() -> u32 {
@@ -1027,8 +1031,8 @@ pub fn get_default_settings() -> AppSettings {
             id: "cancel".to_string(),
             name: "Cancel".to_string(),
             description: "Cancels the current recording.".to_string(),
-            default_binding: "escape".to_string(),
-            current_binding: "escape".to_string(),
+            default_binding: DEFAULT_CANCEL_SHORTCUT.to_string(),
+            current_binding: DEFAULT_CANCEL_SHORTCUT.to_string(),
         },
     );
 
@@ -1333,6 +1337,16 @@ fn apply_settings_migrations(
         updated = true;
     }
 
+    if stored_schema_version < 6 {
+        if let Some(cancel) = settings.bindings.get_mut("cancel") {
+            cancel.default_binding = DEFAULT_CANCEL_SHORTCUT.to_string();
+            if cancel.current_binding == "escape" {
+                cancel.current_binding = DEFAULT_CANCEL_SHORTCUT.to_string();
+            }
+        }
+        updated = true;
+    }
+
     if stored_schema_version < u64::from(CURRENT_SETTINGS_SCHEMA_VERSION) {
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
         updated = true;
@@ -1593,6 +1607,7 @@ mod tests {
         assert_eq!(settings.sound_theme, SoundTheme::Pop);
 
         assert!(apply_settings_migrations(&mut settings, &stored));
+        assert_eq!(settings.bindings["cancel"].current_binding, "shift+escape");
         assert_eq!(
             settings.settings_schema_version,
             CURRENT_SETTINGS_SCHEMA_VERSION

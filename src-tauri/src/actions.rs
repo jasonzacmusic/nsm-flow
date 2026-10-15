@@ -228,7 +228,7 @@ async fn post_process_transcription(
     }
 
     // A model on this computer takes a second or more, so plain dictation keeps the
-    // instant local cleanup and only corrections, lists and emails wait for it.
+    // instant local cleanup; sentences, corrections, lists and emails wait for it.
     if is_local_provider(&provider) && !crate::writing_mode::needs_ai_rewrite(transcription, mode) {
         debug!("Local model skipped: nothing in this dictation needs a rewrite");
         return Some(local_fallback);

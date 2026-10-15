@@ -3,6 +3,7 @@ use log::debug;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, REFERER, USER_AGENT};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::time::Duration;
 
 #[derive(Debug, Serialize)]
 struct ChatMessage {
@@ -98,9 +99,19 @@ fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<Header
 
 /// Create an HTTP client with provider-specific headers
 fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwest::Client, String> {
+    create_client_with_timeout(provider, api_key, Duration::from_secs(30))
+}
+
+fn create_client_with_timeout(
+    provider: &PostProcessProvider,
+    api_key: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client, String> {
     let headers = build_headers(provider, api_key)?;
     reqwest::Client::builder()
         .default_headers(headers)
+        .connect_timeout(Duration::from_secs(5))
+        .timeout(timeout)
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {}", e))
 }
@@ -275,4 +286,36 @@ pub async fn fetch_models(
     }
 
     Ok(models)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::thread;
+
+    #[test]
+    fn stalled_provider_is_bounded_by_request_deadline() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(2)))
+                .unwrap();
+            let mut request = [0; 1024];
+            let _ = stream.read(&mut request);
+            thread::sleep(Duration::from_millis(200));
+        });
+        let settings = crate::settings::AppSettings::default();
+        let provider = settings.post_process_provider("custom").unwrap();
+        let client = create_client_with_timeout(provider, "", Duration::from_millis(50)).unwrap();
+        let error = tauri::async_runtime::block_on(async {
+            client.get(format!("http://{address}")).send().await
+        })
+        .unwrap_err();
+        assert!(error.is_timeout(), "{error}");
+        server.join().unwrap();
+    }
 }

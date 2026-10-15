@@ -72,9 +72,9 @@ static MUSICAL_SIGN: Lazy<Regex> = Lazy::new(|| {
         .expect("valid musical sign regex")
 });
 
-/// Chord qualities with an extension or an unambiguous quality word are safe
-/// to compact in every prose mode. Accidentals have already been normalized by
-/// `MUSICAL_NOTE`, so the root can contain a real Unicode accidental.
+/// Chord qualities are compacted only after the article-A ambiguity guard.
+/// A quality word alone is not evidence of musical intent in ordinary prose.
+/// Accidentals have already been normalized by `MUSICAL_NOTE`.
 static CHORD_QUALITY: Lazy<Regex> = Lazy::new(|| {
     // Speech recognizers also produce ordinal words and numerals: "major 7th"
     // must be consumed as one quality before plain-triad formatting runs.
@@ -106,7 +106,7 @@ static SLASH_CHORD: Lazy<Regex> = Lazy::new(|| {
 
 static MUSIC_CONTEXT: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r"(?i)\b(?:play|practice|sing|hear|write|type|pitch|note|chord|progression|voicing|inversion|cadence|arpeggio|harmony|transpose|key|scale|bar|measure|rehearsal|tempo|metronome|musescore|reaper)\b",
+        r"(?i)\b(?:play|practice|sing|pitch|chord|progression|voicing|inversion|cadence|arpeggio|harmony|transpose|rehearsal|tempo|metronome|musescore|reaper)\b",
     )
     .expect("valid music context regex")
 });
@@ -318,6 +318,7 @@ fn note_or_rest_symbol(duration: &str, kind: &str) -> &'static str {
     }
 }
 
+<<<<<<< HEAD
 fn should_compact_triad(text: &str, captures: &regex::Captures<'_>) -> bool {
     let matched = captures.get(0).expect("triad capture");
     if matched
@@ -355,6 +356,38 @@ fn should_compact_triad(text: &str, captures: &regex::Captures<'_>) -> bool {
         .next()
         .unwrap_or("");
     CHORD_INTENT.is_match(sentence)
+=======
+/// The spoken note A is indistinguishable from the English article. A musical
+/// word elsewhere in the sentence must not turn "a minor delay" into "Am delay".
+fn should_format_chord(text: &str, captures: &regex::Captures<'_>, mode: WritingMode) -> bool {
+    if mode == WritingMode::Music
+        || !captures[1].eq_ignore_ascii_case("a")
+        || captures
+            .get(2)
+            .is_some_and(|value| !value.as_str().is_empty())
+    {
+        return true;
+    }
+    let matched = captures.get(0).expect("chord capture");
+    if matched.as_str().to_ascii_lowercase().ends_with(" chord") {
+        return true;
+    }
+    let tail = text[matched.end()..].trim_start();
+    let next_word = tail
+        .split(|c: char| !c.is_alphabetic())
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ["chord", "scale", "triad"].contains(&next_word.as_str()) {
+        return true;
+    }
+    // Explicit musical instructions/lists can end in an A chord or continue
+    // with another chord/bass note. Ordinary noun/adjective continuations cannot.
+    let musical_continuation = tail.is_empty()
+        || tail.starts_with([',', '.', ';', ':', '!', '?'])
+        || ["and", "or", "then", "over", "slash", "before"].contains(&next_word.as_str());
+    musical_continuation && MUSIC_CONTEXT.is_match(&text[..matched.start()])
+>>>>>>> 4b5ae00 (fix: preserve dictation consent and ordinary prose)
 }
 
 fn format_music_notation(text: &str, mode: WritingMode) -> String {
@@ -390,6 +423,9 @@ fn format_music_notation(text: &str, mode: WritingMode) -> String {
 
     let with_chord_qualities = CHORD_QUALITY
         .replace_all(&with_signs, |captures: &regex::Captures<'_>| {
+            if !should_format_chord(&with_signs, captures, mode) {
+                return captures[0].to_string();
+            }
             let root = captures
                 .get(1)
                 .expect("chord root capture")
@@ -409,8 +445,13 @@ fn format_music_notation(text: &str, mode: WritingMode) -> String {
     let with_triads = if music_context {
         SIMPLE_TRIAD
             .replace_all(&with_chord_qualities, |captures: &regex::Captures<'_>| {
+<<<<<<< HEAD
                 if !should_compact_triad(&with_chord_qualities, captures) {
                     return captures.get(0).expect("triad capture").as_str().to_string();
+=======
+                if !should_format_chord(&with_chord_qualities, captures, mode) {
+                    return captures[0].to_string();
+>>>>>>> 4b5ae00 (fix: preserve dictation consent and ordinary prose)
                 }
                 let root = captures
                     .get(1)
@@ -885,6 +926,29 @@ mod tests {
             ),
             "Please practice C and Am before class."
         );
+    }
+
+    #[test]
+    fn general_prose_never_uses_the_article_a_as_a_chord() {
+        for mode in [
+            WritingMode::General,
+            WritingMode::Email,
+            WritingMode::Messaging,
+            WritingMode::Document,
+        ] {
+            for text in [
+                "Write a major report about the delay.",
+                "Please note a minor problem with the payment.",
+                "It was a dominant performance.",
+                "We hired a diminished team.",
+                "A seven year old can join.",
+                "Play the recording after a minor delay.",
+                "Practice regularly despite a major problem.",
+                "The chord lesson caused a major delay.",
+            ] {
+                assert_eq!(local_format(text, mode), text, "mode: {mode:?}");
+            }
+        }
     }
 
     #[test]

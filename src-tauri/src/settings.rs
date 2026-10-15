@@ -473,7 +473,7 @@ fn default_model() -> String {
     "".to_string()
 }
 
-const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 3;
+const CURRENT_SETTINGS_SCHEMA_VERSION: u32 = 4;
 const INDIA_CORE_LEXICON: &str = include_str!("../resources/lexicons/india-core.txt");
 
 fn default_settings_schema_version() -> u32 {
@@ -959,8 +959,10 @@ pub const SETTINGS_STORE_PATH: &str = "settings_store.json";
 pub fn get_default_settings() -> AppSettings {
     #[cfg(target_os = "windows")]
     let default_shortcut = "ctrl+space";
+    // The backtick/tilde key, not fn: fn is Wispr Flow's dictation key, and
+    // running both apps meant one keypress started two recordings.
     #[cfg(target_os = "macos")]
-    let default_shortcut = "fn";
+    let default_shortcut = "`";
     #[cfg(target_os = "linux")]
     let default_shortcut = "ctrl+space";
     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
@@ -1270,6 +1272,21 @@ fn apply_settings_migrations(
         settings.update_checks_enabled = true;
         updated = true;
     }
+    if stored_schema_version < 4 {
+        // The macOS dictation key moved from fn (Wispr Flow's key) to the
+        // backtick/tilde key. Only the untouched old default is moved; a
+        // shortcut the user picked themselves is left alone.
+        #[cfg(target_os = "macos")]
+        if let Some(binding) = settings.bindings.get_mut("transcribe") {
+            if binding.default_binding == "fn" {
+                binding.default_binding = "`".to_string();
+                if binding.current_binding == "fn" {
+                    binding.current_binding = "`".to_string();
+                }
+            }
+        }
+        updated = true;
+    }
 
     if stored_schema_version < u64::from(CURRENT_SETTINGS_SCHEMA_VERSION) {
         settings.settings_schema_version = CURRENT_SETTINGS_SCHEMA_VERSION;
@@ -1566,6 +1583,39 @@ mod tests {
         assert_eq!(
             settings.settings_schema_version,
             CURRENT_SETTINGS_SCHEMA_VERSION
+        );
+    }
+
+    /// fn is Wispr Flow's dictation key. Installs still on the old fn default
+    /// move to the tilde key; a shortcut the user chose is kept.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn schema_4_moves_the_old_fn_default_to_tilde() {
+        let binding = |current: &str| {
+            serde_json::json!({
+                "id": "transcribe",
+                "name": "Transcribe",
+                "description": "Converts your speech into text.",
+                "default_binding": "fn",
+                "current_binding": current
+            })
+        };
+        for (current, expected) in [("fn", "`"), ("ctrl+shift+d", "ctrl+shift+d")] {
+            let mut stored = default_settings_json();
+            let map = stored.as_object_mut().unwrap();
+            map.insert("settings_schema_version".into(), serde_json::json!(3));
+            map["bindings"]["transcribe"] = binding(current);
+
+            let mut settings: AppSettings =
+                serde_json::from_value(stored.clone()).expect("fixture parses");
+            assert!(apply_settings_migrations(&mut settings, &stored));
+            let migrated = &settings.bindings["transcribe"];
+            assert_eq!(migrated.current_binding, expected);
+            assert_eq!(migrated.default_binding, "`");
+        }
+        assert_eq!(
+            get_default_settings().bindings["transcribe"].current_binding,
+            "`"
         );
     }
 

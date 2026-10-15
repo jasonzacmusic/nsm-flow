@@ -160,6 +160,8 @@ export const getKeyName = (
 const capitalizeKey = (key: string): string => {
   // fn key: keep lowercase
   if (key === "fn") return "fn";
+  // Backtick: show the key's tilde label, which people recognise more easily
+  if (key === "`") return "~";
   // Function keys: f1 -> F1
   if (/^f\d+$/.test(key)) return key.toUpperCase();
   // Single char: a -> A

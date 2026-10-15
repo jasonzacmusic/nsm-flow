@@ -1,0 +1,486 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		05131F762209B5D9F7991A42 /* NSMFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29829AC5BE9252421DC3509A /* NSMFlowApp.swift */; };
+		0EA4B582178FA966AE53EDAA /* FlowSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C2DC15E0399290B656C95DD /* FlowSession.swift */; };
+		159180BB02824336F99889C9 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B769E8D4691B8B437C89D704 /* ContentView.swift */; };
+		16B1EE10EBC0EDA72D05B2C6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 722E975F83571EBEB09B6096 /* Assets.xcassets */; };
+		3FF6B91305DA3F82D5DC6DE0 /* words.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8FA3F587E6A64859ED1542FF /* words.txt */; };
+		409E9DD4607CE47E0FF8183D /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A83FAEBBBAA10AB9CFE84C /* KeyboardViewController.swift */; };
+		4BED227C156BF98A41BD5074 /* TextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3149AA8FCDCE8F50BA6EE980 /* TextFormatter.swift */; };
+		549A062BE3E5D83A7CCD5C5C /* SwipeDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C79922CB9F6E75F13ACA7D9A /* SwipeDecoder.swift */; };
+		64CC6350A42C905AEE094AA6 /* NSMKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 957A0002E23AB6F9E40BB36B /* NSMKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		A070B9C1C9C5BE609BB750C5 /* Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37DBB6BFECAA8FCF194616C0 /* Shared.swift */; };
+		B864FFB3695F88C6AA4C517C /* Shared.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37DBB6BFECAA8FCF194616C0 /* Shared.swift */; };
+		DDC8FE357B7E26ECBC6E756C /* KeyboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C3AACC2BECA6E0E5548009D /* KeyboardView.swift */; };
+		F78D439EF5A8400E84B36583 /* TextFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3149AA8FCDCE8F50BA6EE980 /* TextFormatter.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		6DC6914FC918541B4E584E87 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 68FDF678BDCC4DAAEB91F40E /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 9E094F8A87598993A3CABC96;
+			remoteInfo = NSMKeyboard;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F7D330F4E3CB6BE5A36309C5 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				64CC6350A42C905AEE094AA6 /* NSMKeyboard.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		04179204B0ABFAD714BBE14B /* NSMKeyboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NSMKeyboard.entitlements; sourceTree = "<group>"; };
+		29829AC5BE9252421DC3509A /* NSMFlowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NSMFlowApp.swift; sourceTree = "<group>"; };
+		2C2DC15E0399290B656C95DD /* FlowSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowSession.swift; sourceTree = "<group>"; };
+		3149AA8FCDCE8F50BA6EE980 /* TextFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextFormatter.swift; sourceTree = "<group>"; };
+		37DBB6BFECAA8FCF194616C0 /* Shared.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Shared.swift; sourceTree = "<group>"; };
+		4C3AACC2BECA6E0E5548009D /* KeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardView.swift; sourceTree = "<group>"; };
+		722E975F83571EBEB09B6096 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		8FA3F587E6A64859ED1542FF /* words.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = words.txt; sourceTree = "<group>"; };
+		957A0002E23AB6F9E40BB36B /* NSMKeyboard.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = NSMKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B062D63E0F429833E8F9363E /* NSMFlow.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NSMFlow.entitlements; sourceTree = "<group>"; };
+		B769E8D4691B8B437C89D704 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		C79922CB9F6E75F13ACA7D9A /* SwipeDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeDecoder.swift; sourceTree = "<group>"; };
+		D1A83FAEBBBAA10AB9CFE84C /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
+		DB3FD1DAB864DE1705CCC00B /* NSMFlow.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = NSMFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DE7F05FC08BAD70BF3D6B874 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F0D4F0109C7DB458621436C4 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		32412975D40F91A11070E89E /* NSMFlow */ = {
+			isa = PBXGroup;
+			children = (
+				722E975F83571EBEB09B6096 /* Assets.xcassets */,
+				B769E8D4691B8B437C89D704 /* ContentView.swift */,
+				2C2DC15E0399290B656C95DD /* FlowSession.swift */,
+				F0D4F0109C7DB458621436C4 /* Info.plist */,
+				B062D63E0F429833E8F9363E /* NSMFlow.entitlements */,
+				29829AC5BE9252421DC3509A /* NSMFlowApp.swift */,
+			);
+			path = NSMFlow;
+			sourceTree = "<group>";
+		};
+		55DE971C280E01E9D421E208 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				37DBB6BFECAA8FCF194616C0 /* Shared.swift */,
+				3149AA8FCDCE8F50BA6EE980 /* TextFormatter.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		5D2E945E6AC5B29592E0F4EF /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DB3FD1DAB864DE1705CCC00B /* NSMFlow.app */,
+				957A0002E23AB6F9E40BB36B /* NSMKeyboard.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6E1475475603B88425A0E0C2 /* NSMKeyboard */ = {
+			isa = PBXGroup;
+			children = (
+				DE7F05FC08BAD70BF3D6B874 /* Info.plist */,
+				4C3AACC2BECA6E0E5548009D /* KeyboardView.swift */,
+				D1A83FAEBBBAA10AB9CFE84C /* KeyboardViewController.swift */,
+				04179204B0ABFAD714BBE14B /* NSMKeyboard.entitlements */,
+				C79922CB9F6E75F13ACA7D9A /* SwipeDecoder.swift */,
+				8FA3F587E6A64859ED1542FF /* words.txt */,
+			);
+			path = NSMKeyboard;
+			sourceTree = "<group>";
+		};
+		C6F2A9EA6B45E07547FBA4F7 = {
+			isa = PBXGroup;
+			children = (
+				32412975D40F91A11070E89E /* NSMFlow */,
+				6E1475475603B88425A0E0C2 /* NSMKeyboard */,
+				55DE971C280E01E9D421E208 /* Shared */,
+				5D2E945E6AC5B29592E0F4EF /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		0337C264245E95141672353A /* NSMFlow */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AB4D5BED1C805E609009A6FE /* Build configuration list for PBXNativeTarget "NSMFlow" */;
+			buildPhases = (
+				981CC82B7D68F08B1DA4B78C /* Sources */,
+				FD88E6B2D54AECB1F65CDEF5 /* Resources */,
+				F7D330F4E3CB6BE5A36309C5 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				14625890B1463F752919D4AF /* PBXTargetDependency */,
+			);
+			name = NSMFlow;
+			packageProductDependencies = (
+			);
+			productName = NSMFlow;
+			productReference = DB3FD1DAB864DE1705CCC00B /* NSMFlow.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9E094F8A87598993A3CABC96 /* NSMKeyboard */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E0440517B7D185583855D7AB /* Build configuration list for PBXNativeTarget "NSMKeyboard" */;
+			buildPhases = (
+				546812F701B1B0DBA418B81F /* Sources */,
+				44E484557C93993AEC045882 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = NSMKeyboard;
+			packageProductDependencies = (
+			);
+			productName = NSMKeyboard;
+			productReference = 957A0002E23AB6F9E40BB36B /* NSMKeyboard.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		68FDF678BDCC4DAAEB91F40E /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					0337C264245E95141672353A = {
+						DevelopmentTeam = R3UNCZH45H;
+						ProvisioningStyle = Automatic;
+					};
+					9E094F8A87598993A3CABC96 = {
+						DevelopmentTeam = R3UNCZH45H;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 7E388D8BA67597E4D5CF3C52 /* Build configuration list for PBXProject "NSMFlow" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = C6F2A9EA6B45E07547FBA4F7;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5D2E945E6AC5B29592E0F4EF /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				0337C264245E95141672353A /* NSMFlow */,
+				9E094F8A87598993A3CABC96 /* NSMKeyboard */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		44E484557C93993AEC045882 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				3FF6B91305DA3F82D5DC6DE0 /* words.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FD88E6B2D54AECB1F65CDEF5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				16B1EE10EBC0EDA72D05B2C6 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		546812F701B1B0DBA418B81F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DDC8FE357B7E26ECBC6E756C /* KeyboardView.swift in Sources */,
+				409E9DD4607CE47E0FF8183D /* KeyboardViewController.swift in Sources */,
+				A070B9C1C9C5BE609BB750C5 /* Shared.swift in Sources */,
+				549A062BE3E5D83A7CCD5C5C /* SwipeDecoder.swift in Sources */,
+				F78D439EF5A8400E84B36583 /* TextFormatter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		981CC82B7D68F08B1DA4B78C /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				159180BB02824336F99889C9 /* ContentView.swift in Sources */,
+				0EA4B582178FA966AE53EDAA /* FlowSession.swift in Sources */,
+				05131F762209B5D9F7991A42 /* NSMFlowApp.swift in Sources */,
+				B864FFB3695F88C6AA4C517C /* Shared.swift in Sources */,
+				4BED227C156BF98A41BD5074 /* TextFormatter.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		14625890B1463F752919D4AF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 9E094F8A87598993A3CABC96 /* NSMKeyboard */;
+			targetProxy = 6DC6914FC918541B4E584E87 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		04E83D8D830AEBD00FBE996A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = NSMFlow/NSMFlow.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = NSMFlow/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nathanielschool.nsmflow.ios;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		115BA12F9DAC726D18C86F07 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = NSMFlow/NSMFlow.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = NSMFlow/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nathanielschool.nsmflow.ios;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		6FE84A9993BC24889BD8905A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = NSMKeyboard/NSMKeyboard.entitlements;
+				INFOPLIST_FILE = NSMKeyboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nathanielschool.nsmflow.ios.keyboard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		92633C081FC79255905BD438 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = NSMKeyboard/NSMKeyboard.entitlements;
+				INFOPLIST_FILE = NSMKeyboard/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.nathanielschool.nsmflow.ios.keyboard;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B742FD350710191262B3021F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = R3UNCZH45H;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		C417B2A37A56D9E452A77BBC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = R3UNCZH45H;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		7E388D8BA67597E4D5CF3C52 /* Build configuration list for PBXProject "NSMFlow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B742FD350710191262B3021F /* Debug */,
+				C417B2A37A56D9E452A77BBC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AB4D5BED1C805E609009A6FE /* Build configuration list for PBXNativeTarget "NSMFlow" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				115BA12F9DAC726D18C86F07 /* Debug */,
+				04E83D8D830AEBD00FBE996A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E0440517B7D185583855D7AB /* Build configuration list for PBXNativeTarget "NSMKeyboard" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6FE84A9993BC24889BD8905A /* Debug */,
+				92633C081FC79255905BD438 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 68FDF678BDCC4DAAEB91F40E /* Project object */;
+}

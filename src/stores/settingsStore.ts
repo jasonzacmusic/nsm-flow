@@ -133,6 +133,7 @@ const settingUpdaters: {
     commands.changePasteDelayAfterMsSetting(value as number),
   paste_method: (value) => commands.changePasteMethodSetting(value as string),
   typing_tool: (value) => commands.changeTypingToolSetting(value as string),
+  email_signoff: (value) => commands.changeEmailSignoffSetting(value as string),
   external_script_path: (value) =>
     commands.changeExternalScriptPathSetting(value as string | null),
   clipboard_handling: (value) =>

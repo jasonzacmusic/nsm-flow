@@ -33,6 +33,7 @@ const ENGLISH_FALLBACK_KEYS = new Set([
 const ENGLISH_FALLBACK_PREFIXES = [
   "settings.team.",
   "settings.about.projectPage.",
+  "settings.postProcessing.emailSignoff.",
 ];
 
 type TranslationData = Record<string, unknown>;

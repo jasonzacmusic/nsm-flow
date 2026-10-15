@@ -886,6 +886,15 @@ pub fn change_typing_tool_setting(app: AppHandle, tool: String) -> Result<(), St
 
 #[tauri::command]
 #[specta::specta]
+pub fn change_email_signoff_setting(app: AppHandle, signoff: String) -> Result<(), String> {
+    let mut settings = settings::get_settings(&app);
+    settings.email_signoff = signoff;
+    settings::write_settings(&app, settings);
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn change_external_script_path_setting(
     app: AppHandle,
     path: Option<String>,

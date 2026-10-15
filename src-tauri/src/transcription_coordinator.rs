@@ -9,6 +9,10 @@ use tauri::{AppHandle, Manager};
 
 const DEBOUNCE: Duration = Duration::from_millis(30);
 const RELEASE_GRACE: Duration = Duration::from_millis(50);
+/// A push-to-talk press shorter than this is a tap, not a hold.
+const TAP_MAX: Duration = Duration::from_millis(250);
+/// After a tap, a second press within this window turns on hands-free.
+const DOUBLE_TAP_WINDOW: Duration = Duration::from_millis(350);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PttAction {
@@ -63,6 +67,92 @@ impl UpdateReservation {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PttDecision {
+    Nothing,
+    Start,
+    Stop,
+    Cancel,
+}
+
+/// Push-to-talk with a hands-free mode: hold the key to talk, or double-tap it
+/// to keep recording after letting go, then tap once more to finish. Recording
+/// starts on the first press, so nothing said during the double tap is lost.
+#[derive(Debug, Default)]
+struct HoldOrDoubleTap {
+    pressed_at: Option<Instant>,
+    second_tap_deadline: Option<Instant>,
+    hands_free: bool,
+    swallow_release: bool,
+}
+
+impl HoldOrDoubleTap {
+    fn press(&mut self, now: Instant, idle: bool, recording_this: bool) -> PttDecision {
+        if idle {
+            *self = Self {
+                pressed_at: Some(now),
+                ..Self::default()
+            };
+            return PttDecision::Start;
+        }
+        if !recording_this {
+            return PttDecision::Nothing;
+        }
+        if self.second_tap_deadline.take().is_some() {
+            self.hands_free = true;
+            self.swallow_release = true;
+            PttDecision::Nothing
+        } else if self.hands_free {
+            *self = Self::default();
+            PttDecision::Stop
+        } else {
+            PttDecision::Nothing
+        }
+    }
+
+    fn release(&mut self, released_at: Instant, recording_this: bool) -> PttDecision {
+        if !recording_this {
+            return PttDecision::Nothing;
+        }
+        if self.swallow_release {
+            self.swallow_release = false;
+            return PttDecision::Nothing;
+        }
+        if self.hands_free {
+            return PttDecision::Nothing;
+        }
+        if self
+            .pressed_at
+            .is_some_and(|t| released_at.saturating_duration_since(t) < TAP_MAX)
+        {
+            self.second_tap_deadline = Some(released_at + DOUBLE_TAP_WINDOW);
+            return PttDecision::Nothing;
+        }
+        *self = Self::default();
+        PttDecision::Stop
+    }
+
+    fn deadline(&self) -> Option<Instant> {
+        self.second_tap_deadline
+    }
+
+    /// A lone tap with no second press: too short to hold any speech, so the
+    /// recording is discarded instead of transcribed.
+    fn expire(&mut self, now: Instant, recording: bool) -> PttDecision {
+        match self.second_tap_deadline {
+            Some(deadline) if deadline <= now => {
+                *self = Self::default();
+                if recording {
+                    PttDecision::Cancel
+                } else {
+                    PttDecision::Nothing
+                }
+            }
+            _ => PttDecision::Nothing,
+        }
+    }
+}
+
 fn classify_ptt_event(
     pending_release_binding: Option<&str>,
     is_pressed: bool,
@@ -108,24 +198,45 @@ impl TranscriptionCoordinator {
                 let mut last_press: Option<Instant> = None;
                 let mut pending_release: Option<PendingRelease> = None;
                 let mut update = UpdateReservation::default();
+                let mut hold_or_tap = HoldOrDoubleTap::default();
 
                 loop {
-                    let cmd = if let Some(pending) = &pending_release {
-                        match rx.recv_timeout(
-                            pending.deadline.saturating_duration_since(Instant::now()),
-                        ) {
+                    let next_deadline = [
+                        pending_release.as_ref().map(|pending| pending.deadline),
+                        hold_or_tap.deadline(),
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .min();
+                    let cmd = if let Some(deadline) = next_deadline {
+                        match rx.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
                             Ok(cmd) => cmd,
                             Err(mpsc::RecvTimeoutError::Timeout) => {
-                                if let Some(pending) = pending_release.take() {
-                                    if matches!(&stage, Stage::Recording(id) if id == &pending.binding_id)
-                                    {
-                                        stop(
-                                            &app,
-                                            &mut stage,
-                                            &pending.binding_id,
-                                            &pending.hotkey_string,
-                                        );
+                                let now = Instant::now();
+                                if pending_release
+                                    .as_ref()
+                                    .is_some_and(|pending| pending.deadline <= now)
+                                {
+                                    if let Some(pending) = pending_release.take() {
+                                        let recording_this = matches!(&stage, Stage::Recording(id) if id == &pending.binding_id);
+                                        let released_at = pending.deadline - RELEASE_GRACE;
+                                        if hold_or_tap.release(released_at, recording_this)
+                                            == PttDecision::Stop
+                                        {
+                                            stop(
+                                                &app,
+                                                &mut stage,
+                                                &pending.binding_id,
+                                                &pending.hotkey_string,
+                                            );
+                                        }
                                     }
+                                }
+                                let recording = matches!(stage, Stage::Recording(_));
+                                if hold_or_tap.expire(now, recording) == PttDecision::Cancel {
+                                    debug!("Single tap without a second: discarding recording");
+                                    crate::utils::cancel_current_operation(&app);
+                                    stage = Stage::Idle;
                                 }
                                 continue;
                             }
@@ -191,12 +302,22 @@ impl TranscriptionCoordinator {
                             }
 
                             if push_to_talk {
-                                if is_pressed && matches!(stage, Stage::Idle) {
-                                    start(&app, &mut stage, &binding_id, &hotkey_string);
-                                } else if !is_pressed
-                                    && matches!(&stage, Stage::Recording(id) if id == &binding_id)
-                                {
-                                    stop(&app, &mut stage, &binding_id, &hotkey_string);
+                                let idle = matches!(stage, Stage::Idle);
+                                let recording_this =
+                                    matches!(&stage, Stage::Recording(id) if id == &binding_id);
+                                let decision = if is_pressed {
+                                    hold_or_tap.press(Instant::now(), idle, recording_this)
+                                } else {
+                                    hold_or_tap.release(Instant::now(), recording_this)
+                                };
+                                match decision {
+                                    PttDecision::Start => {
+                                        start(&app, &mut stage, &binding_id, &hotkey_string)
+                                    }
+                                    PttDecision::Stop => {
+                                        stop(&app, &mut stage, &binding_id, &hotkey_string)
+                                    }
+                                    PttDecision::Cancel | PttDecision::Nothing => {}
                                 }
                             } else if is_pressed {
                                 match &stage {
@@ -216,6 +337,7 @@ impl TranscriptionCoordinator {
                             recording_was_active,
                         } => {
                             pending_release = None;
+                            hold_or_tap = HoldOrDoubleTap::default();
                             // Don't reset during processing — wait for the pipeline to finish.
                             if !matches!(stage, Stage::Processing)
                                 && (recording_was_active || matches!(stage, Stage::Recording(_)))
@@ -224,6 +346,7 @@ impl TranscriptionCoordinator {
                             }
                         }
                         Command::ProcessingFinished => {
+                            hold_or_tap = HoldOrDoubleTap::default();
                             stage = Stage::Idle;
                         }
                         Command::BeginUpdate(reply) => {
@@ -541,6 +664,57 @@ mod tests {
             stops,
             stage,
         }
+    }
+
+    fn ms(base: Instant, n: u64) -> Instant {
+        base + Duration::from_millis(n)
+    }
+
+    #[test]
+    fn holding_the_key_records_until_release() {
+        let t = Instant::now();
+        let mut k = HoldOrDoubleTap::default();
+        assert_eq!(k.press(t, true, false), PttDecision::Start);
+        assert_eq!(k.release(ms(t, 1500), true), PttDecision::Stop);
+        assert_eq!(k.deadline(), None);
+    }
+
+    #[test]
+    fn double_tap_keeps_recording_until_the_next_tap() {
+        let t = Instant::now();
+        let mut k = HoldOrDoubleTap::default();
+        assert_eq!(k.press(t, true, false), PttDecision::Start);
+        assert_eq!(k.release(ms(t, 100), true), PttDecision::Nothing);
+        assert_eq!(k.press(ms(t, 250), false, true), PttDecision::Nothing);
+        assert_eq!(k.release(ms(t, 330), true), PttDecision::Nothing);
+        // Hands-free: long after letting go, still recording.
+        assert_eq!(k.expire(ms(t, 5000), true), PttDecision::Nothing);
+        assert_eq!(k.press(ms(t, 9000), false, true), PttDecision::Stop);
+        // The release of the finishing tap does nothing more.
+        assert_eq!(k.release(ms(t, 9080), false), PttDecision::Nothing);
+    }
+
+    #[test]
+    fn a_single_tap_is_discarded_not_transcribed() {
+        let t = Instant::now();
+        let mut k = HoldOrDoubleTap::default();
+        assert_eq!(k.press(t, true, false), PttDecision::Start);
+        assert_eq!(k.release(ms(t, 120), true), PttDecision::Nothing);
+        assert_eq!(k.expire(ms(t, 300), true), PttDecision::Nothing);
+        assert_eq!(k.expire(ms(t, 480), true), PttDecision::Cancel);
+        assert_eq!(k.deadline(), None);
+    }
+
+    #[test]
+    fn a_slow_second_press_after_a_tap_does_not_turn_on_hands_free() {
+        let t = Instant::now();
+        let mut k = HoldOrDoubleTap::default();
+        k.press(t, true, false);
+        k.release(ms(t, 100), true);
+        assert_eq!(k.expire(ms(t, 460), true), PttDecision::Cancel);
+        // Idle again: the next press is a fresh hold.
+        assert_eq!(k.press(ms(t, 600), true, false), PttDecision::Start);
+        assert_eq!(k.release(ms(t, 2000), true), PttDecision::Stop);
     }
 
     /// Initial press plus several synthesized release/press pairs, as X11 emits

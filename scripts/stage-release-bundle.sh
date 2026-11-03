@@ -58,9 +58,12 @@ echo "source     $(basename "$SOURCE_ZIP") @ $(git rev-parse --short HEAD)"
 cp "src/content/release-notes/$VERSION.md" "$DIST/RELEASE_NOTES.md"
 
 # Checksums over everything a person can download individually.
+# Only the platforms the update feed covers; a Linux provenance file sitting in
+# dist-release must not leak into this list (verify-release.py rejects extras).
+PROVENANCE=(provenance-aarch64-apple-darwin.json provenance-x86_64-apple-darwin.json provenance-x86_64-pc-windows-msvc.json)
 SUMS="$DIST/NSM-Flow-$VERSION-SHA256SUMS.txt"
 : > "$SUMS"
-( cd "$DIST" && shasum -a 256 "${INSTALLERS[@]}" "NSM-Flow-$VERSION-source.zip" provenance-*.json nsm-flow.json >> "$SUMS" )
+( cd "$DIST" && shasum -a 256 "${INSTALLERS[@]}" "NSM-Flow-$VERSION-source.zip" "${PROVENANCE[@]}" nsm-flow.json >> "$SUMS" )
 
 # The complete bundle: everything above plus the docs, for anyone who wants one
 # download. Its own checksum goes into SHA256SUMS afterwards.
@@ -69,7 +72,7 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$STAGE/$BUNDLE"/{Installers,Source,Documents,Checksums}
 for f in "${INSTALLERS[@]}"; do cp "$DIST/$f" "$STAGE/$BUNDLE/Installers/"; done
 cp "$SOURCE_ZIP" "$STAGE/$BUNDLE/Source/"
-cp "$DIST/RELEASE_NOTES.md" "$DIST/nsm-flow.json" "$DIST"/provenance-*.json "$STAGE/$BUNDLE/Documents/"
+cp "$DIST/RELEASE_NOTES.md" "$DIST/nsm-flow.json" "${PROVENANCE[@]/#/$DIST/}" "$STAGE/$BUNDLE/Documents/"
 for d in README.md BUILD.md NOTICE.md LICENSE RELEASE_ACCEPTANCE.md NSM_FLOW_INTERN_QA_GUIDE.html \
          CLAUDE_CODE_AUDIT_REPORT.md CLAUDE_CODE_AUDIT_PROMPT.md; do
   [ -f "$d" ] && cp "$d" "$STAGE/$BUNDLE/Documents/"

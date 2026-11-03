@@ -35,8 +35,12 @@ jobs:
           assert run['head_sha'] == os.environ['SOURCE_COMMIT']
           assert run['path'] == '.github/workflows/main-build.yml'
           PY
+          # A successful build uploads the normal artifact; a failed audit
+          # uploads the diagnostic one. Verify whichever the run produced.
           gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
-            --name diagnostic-linux-x86_64-unknown-linux-gnu --dir packages
+            --name nsm-flow-alpha-ubuntu-22.04-x86_64-unknown-linux-gnu --dir packages \
+            || gh run download "$SOURCE_RUN" --repo "$GITHUB_REPOSITORY" \
+              --name diagnostic-linux-x86_64-unknown-linux-gnu --dir packages
       - name: Install test host runtime dependencies
         run: |
           sudo apt-get update

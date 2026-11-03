@@ -43,6 +43,9 @@ struct RecordingErrorEvent {
 struct FinishGuard(AppHandle);
 impl Drop for FinishGuard {
     fn drop(&mut self) {
+        // Keyboard cancellation stays available while transcribing and polishing;
+        // it is released only when the whole pipeline is done.
+        shortcut::unregister_cancel_shortcut(&self.0);
         if let Some(c) = self.0.try_state::<TranscriptionCoordinator>() {
             c.notify_processing_finished();
         }
@@ -72,6 +75,17 @@ fn strip_invisible_chars(s: &str) -> String {
         .join("\n")
 }
 
+/// Never paste provider JSON, commentary or an empty field as a transcript.
+fn structured_transcription(content: &str) -> Option<String> {
+    let json: serde_json::Value = serde_json::from_str(content).ok()?;
+    let text = strip_invisible_chars(json.get(TRANSCRIPTION_FIELD)?.as_str()?);
+    if text.trim().is_empty() {
+        None
+    } else {
+        Some(text)
+    }
+}
+
 /// Build a system prompt from the user's prompt template.
 /// Removes `${output}` placeholder since the transcription is sent as the user message.
 fn build_system_prompt(prompt_template: &str) -> String {
@@ -82,8 +96,6 @@ fn build_system_prompt(prompt_template: &str) -> String {
         .to_string()
 }
 
-/// Adds the user's email sign-off to the email rules, ahead of the transcript
-/// so the model reads it as an instruction.
 fn is_local_provider(provider: &crate::settings::PostProcessProvider) -> bool {
     let url = provider.base_url.to_ascii_lowercase();
     url.contains("://localhost") || url.contains("://127.0.0.1") || url.contains("://[::1]")
@@ -136,6 +148,8 @@ fn append_email_signoff(text: &str, signoff: &str) -> String {
     format!("{}\n\n{signoff}", text.trim_end())
 }
 
+/// Adds the user's email sign-off to the email rules, ahead of the transcript
+/// so the model reads it as an instruction.
 fn with_email_signoff(prompt: String, signoff: &str) -> String {
     let signoff = signoff.trim();
     if signoff.is_empty() {
@@ -204,6 +218,12 @@ async fn post_process_transcription(
     } else {
         local_fallback
     };
+
+    // The main dictation key always reaches this point, so consent is enforced
+    // here: with AI formatting switched off, no text leaves the local cleanup.
+    if !settings.post_process_enabled {
+        return Some(local_fallback);
+    }
 
     let provider = match settings.active_post_process_provider().cloned() {
         Some(provider) => provider,
@@ -369,35 +389,32 @@ async fn post_process_transcription(
         .await
         {
             Ok(Some(content)) => {
-                // Parse the JSON response to extract the transcription field
-                match serde_json::from_str::<serde_json::Value>(&content) {
-                    Ok(json) => {
-                        if let Some(transcription_value) =
-                            json.get(TRANSCRIPTION_FIELD).and_then(|t| t.as_str())
-                        {
-                            let result = strip_invisible_chars(transcription_value);
-                            debug!(
-                                "Structured output post-processing succeeded for provider '{}'. Output length: {} chars",
-                                provider.id,
-                                result.len()
-                            );
-                            return Some(result);
-                        } else {
-                            error!("Structured output response missing 'transcription' field");
-                            return Some(strip_invisible_chars(&content));
-                        }
-                    }
-                    Err(e) => {
-                        error!(
-                            "Failed to parse structured output JSON: {}. Returning raw content.",
-                            e
+                return Some(match structured_transcription(&content) {
+                    Some(result) => {
+                        debug!(
+                            "Structured output post-processing succeeded for provider '{}'. Output length: {} chars",
+                            provider.id,
+                            result.len()
                         );
-                        return Some(strip_invisible_chars(&content));
+                        result
                     }
-                }
+                    None => {
+                        error!("Structured output response was not a usable transcription; using local cleanup");
+                        local_fallback
+                    }
+                });
             }
             Ok(None) => {
                 error!("LLM API response has no content");
+                return Some(local_fallback);
+            }
+            Err(e) if crate::llm_client::is_unreachable_error(&e) => {
+                // A timeout already used the whole 30-second budget; asking
+                // again in legacy mode would make the speaker wait twice.
+                warn!(
+                    "Provider '{}' did not answer: {}. Using local cleanup.",
+                    provider.id, e
+                );
                 return Some(local_fallback);
             }
             Err(e) => {
@@ -424,7 +441,7 @@ async fn post_process_transcription(
     )
     .await
     {
-        Ok(Some(content)) => {
+        Ok(Some(content)) if !strip_invisible_chars(&content).trim().is_empty() => {
             let content = strip_invisible_chars(&content);
             debug!(
                 "LLM post-processing succeeded for provider '{}'. Output length: {} chars",
@@ -433,7 +450,7 @@ async fn post_process_transcription(
             );
             Some(content)
         }
-        Ok(None) => {
+        Ok(_) => {
             error!("LLM API response has no content");
             Some(local_fallback)
         }
@@ -730,8 +747,8 @@ impl ShortcutAction for TranscribeAction {
     }
 
     fn stop(&self, app: &AppHandle, binding_id: &str, _shortcut_str: &str) {
-        // Unregister the cancel shortcut when transcription stops
-        shortcut::unregister_cancel_shortcut(app);
+        // The cancel shortcut stays registered while transcribing/polishing;
+        // FinishGuard releases it when the entire pipeline finishes.
 
         let stop_time = Instant::now();
         debug!("TranscribeAction::stop called for binding: {}", binding_id);
@@ -1059,6 +1076,53 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn malformed_structured_output_cannot_replace_the_transcript() {
+        for response in [
+            "here is your text",
+            "{}",
+            r#"{"transcription":42}"#,
+            r#"{"transcription":"  "}"#,
+        ] {
+            assert_eq!(super::structured_transcription(response), None);
+        }
+        assert_eq!(
+            super::structured_transcription(r#"{"transcription":"Hello"}"#).as_deref(),
+            Some("Hello")
+        );
+    }
+
+    #[test]
+    fn disabled_post_processing_never_contacts_configured_provider() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut settings = crate::settings::AppSettings {
+            post_process_enabled: false,
+            post_process_provider_id: "custom".into(),
+            ..Default::default()
+        };
+        settings
+            .post_process_provider_mut("custom")
+            .unwrap()
+            .base_url = format!("http://{}/v1", listener.local_addr().unwrap());
+        settings
+            .post_process_models
+            .insert("custom".into(), "test-model".into());
+        let output = tauri::async_runtime::block_on(super::post_process_transcription(
+            &settings,
+            "Hello new paragraph world, this sentence is long enough to need the model.",
+            crate::writing_mode::WritingMode::General,
+        ));
+        assert_eq!(
+            output.as_deref(),
+            Some("Hello\n\nworld, this sentence is long enough to need the model.")
+        );
+        assert_eq!(
+            listener.accept().unwrap_err().kind(),
+            std::io::ErrorKind::WouldBlock
+        );
+    }
+
     use super::{
         append_email_signoff, build_system_prompt, complete_unless_cancelled,
         is_blank_transcription, should_use_streaming_overlay, with_email_signoff,

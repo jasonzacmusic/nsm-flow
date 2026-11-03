@@ -96,6 +96,22 @@ fn build_headers(provider: &PostProcessProvider, api_key: &str) -> Result<Header
     Ok(headers)
 }
 
+/// Errors that mean the provider did not answer in time or at all. Retrying the
+/// same request in another format would only double the wait.
+pub const UNREACHABLE_PREFIX: &str = "Provider unreachable";
+
+fn request_error(context: &str, error: reqwest::Error) -> String {
+    if error.is_timeout() || error.is_connect() {
+        format!("{UNREACHABLE_PREFIX}: {context}: {error}")
+    } else {
+        format!("{context}: {error}")
+    }
+}
+
+pub fn is_unreachable_error(error: &str) -> bool {
+    error.starts_with(UNREACHABLE_PREFIX)
+}
+
 /// Create an HTTP client with provider-specific headers
 fn create_client(provider: &PostProcessProvider, api_key: &str) -> Result<reqwest::Client, String> {
     let headers = build_headers(provider, api_key)?;
@@ -196,7 +212,7 @@ pub async fn send_chat_completion_with_schema(
         .json(&request_body)
         .send()
         .await
-        .map_err(|e| format!("HTTP request failed: {}", e))?;
+        .map_err(|e| request_error("HTTP request failed", e))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -213,7 +229,7 @@ pub async fn send_chat_completion_with_schema(
     let completion: ChatCompletionResponse = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse API response: {}", e))?;
+        .map_err(|e| request_error("Failed to parse API response", e))?;
 
     Ok(completion
         .choices
@@ -279,4 +295,32 @@ pub async fn fetch_models(
     }
 
     Ok(models)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unreachable_provider_is_reported_as_unreachable() {
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .unwrap()
+            .local_addr()
+            .unwrap()
+            .port();
+        let mut settings = crate::settings::AppSettings::default();
+        let provider = settings.post_process_provider_mut("custom").unwrap();
+        provider.base_url = format!("http://127.0.0.1:{port}/v1");
+        let provider = provider.clone();
+        let error = tauri::async_runtime::block_on(send_chat_completion(
+            &provider,
+            String::new(),
+            "test-model",
+            "hello".into(),
+            None,
+            None,
+        ))
+        .unwrap_err();
+        assert!(is_unreachable_error(&error), "{error}");
+    }
 }

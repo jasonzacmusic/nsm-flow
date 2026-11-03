@@ -2080,6 +2080,27 @@ mod tests {
         assert_eq!(plan.language.as_deref(), Some("es"));
         assert_eq!(plan.target_language, None);
     }
+
+    #[test]
+    fn transcribe_cpp_run_plan_passes_indian_languages_and_auto_detect() {
+        let whisper = languages(&[
+            "en", "hi", "ta", "kn", "te", "ml", "bn", "mr", "gu", "pa", "ur",
+        ]);
+        for code in ["hi", "ta", "kn", "te", "ml", "bn", "mr", "gu", "pa", "ur"] {
+            let plan = transcribe_cpp_run_plan(false, code, &whisper, true);
+            assert!(matches!(plan.task, Task::Transcribe));
+            assert_eq!(plan.language.as_deref(), Some(code));
+
+            let plan = transcribe_cpp_run_plan(true, code, &whisper, true);
+            assert!(matches!(plan.task, Task::Translate));
+            assert_eq!(plan.target_language.as_deref(), Some("en"));
+        }
+
+        // "auto" leaves the language unset so the model detects it itself.
+        let plan = transcribe_cpp_run_plan(false, "auto", &whisper, true);
+        assert_eq!(plan.language, None);
+        assert!(matches!(plan.task, Task::Transcribe));
+    }
 }
 
 impl Drop for TranscriptionManager {

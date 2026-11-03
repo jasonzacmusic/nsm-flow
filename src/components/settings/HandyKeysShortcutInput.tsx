@@ -40,6 +40,22 @@ export const HandyKeysShortcutInput: React.FC<HandyKeysShortcutInputProps> = ({
   // Use a ref to track currentKeys for the event handler (avoids stale closure)
   const currentKeysRef = useRef<string>("");
   const osType = useOsType();
+  // Mirrors isRecording for the unmount cleanup below.
+  const isRecordingRef = useRef(false);
+
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
+  // Leaving the page mid-recording must not leave the shortcut suspended.
+  useEffect(
+    () => () => {
+      if (isRecordingRef.current) {
+        commands.resumeBinding(shortcutId).catch(console.error);
+      }
+    },
+    [shortcutId],
+  );
 
   const bindings = getSetting("bindings") || {};
 
@@ -64,6 +80,8 @@ export const HandyKeysShortcutInput: React.FC<HandyKeysShortcutInputProps> = ({
         console.error("Failed to restore original binding:", error);
         toast.error(t("settings.general.shortcut.errors.restore"));
       }
+    } else {
+      await commands.resumeBinding(shortcutId).catch(console.error);
     }
 
     setIsRecording(false);
@@ -176,6 +194,11 @@ export const HandyKeysShortcutInput: React.FC<HandyKeysShortcutInputProps> = ({
     // Store the original binding to restore if canceled
     setOriginalBinding(bindings[shortcutId]?.current_binding || "");
 
+    // Suspend the live shortcut so pressing it while choosing a new one does
+    // not start a dictation (and is not swallowed before it can be recorded).
+    // Committing or restoring a binding registers it again.
+    await commands.suspendBinding(shortcutId).catch(console.error);
+
     // Start backend recording
     try {
       await commands.startHandyKeysRecording(shortcutId);
@@ -184,6 +207,7 @@ export const HandyKeysShortcutInput: React.FC<HandyKeysShortcutInputProps> = ({
       currentKeysRef.current = "";
     } catch (error) {
       console.error("Failed to start recording:", error);
+      commands.resumeBinding(shortcutId).catch(console.error);
       toast.error(
         t("settings.general.shortcut.errors.set", { error: String(error) }),
       );

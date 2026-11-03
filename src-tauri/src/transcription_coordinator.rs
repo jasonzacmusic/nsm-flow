@@ -211,6 +211,9 @@ impl TranscriptionCoordinator {
                 let mut pending_release: Option<PendingRelease> = None;
                 let mut update = UpdateReservation::default();
                 let mut hold_or_tap = HoldOrDoubleTap::default();
+                // The key that started the current push-to-talk recording, so a
+                // discarded lone tap can give the user back the character.
+                let mut tap_hotkey: Option<String> = None;
 
                 loop {
                     let next_deadline = [
@@ -249,6 +252,9 @@ impl TranscriptionCoordinator {
                                     debug!("Single tap without a second: discarding recording");
                                     crate::utils::cancel_current_operation(&app);
                                     stage = Stage::Idle;
+                                    if let Some(hotkey) = tap_hotkey.take() {
+                                        retype_lone_key(&app, &hotkey);
+                                    }
                                 }
                                 continue;
                             }
@@ -332,14 +338,19 @@ impl TranscriptionCoordinator {
                                 };
                                 match decision {
                                     PttDecision::Start => {
+                                        tap_hotkey = Some(hotkey_string.clone());
                                         start(&app, &mut stage, &binding_id, &hotkey_string)
                                     }
                                     PttDecision::Stop => {
+                                        tap_hotkey = None;
                                         stop(&app, &mut stage, &binding_id, &hotkey_string)
                                     }
                                     PttDecision::Cancel => {
                                         crate::utils::cancel_current_operation(&app);
                                         stage = Stage::Idle;
+                                        if let Some(hotkey) = tap_hotkey.take() {
+                                            retype_lone_key(&app, &hotkey);
+                                        }
                                     }
                                     PttDecision::Nothing => {}
                                 }
@@ -362,6 +373,7 @@ impl TranscriptionCoordinator {
                         } => {
                             pending_release = None;
                             hold_or_tap = HoldOrDoubleTap::default();
+                            tap_hotkey = None;
                             // Don't reset during processing — wait for the pipeline to finish.
                             if !matches!(stage, Stage::Processing)
                                 && (recording_was_active || matches!(stage, Stage::Recording(_)))
@@ -455,6 +467,58 @@ impl TranscriptionCoordinator {
         if self.tx.send(Command::ProcessingFinished).is_err() {
             warn!("Transcription coordinator channel closed");
         }
+    }
+}
+
+/// The character a lone tap of the dictation key would have typed, when that
+/// key is a single punctuation key with no modifiers — the macOS default `.
+/// Letters and digits are left out: they make poor dictation keys, and on macOS
+/// the retyped character is sent with key code 0, which is the A key.
+fn lone_key_char(hotkey: &str) -> Option<char> {
+    let key = hotkey.trim();
+    match key.to_lowercase().as_str() {
+        "`" | "backquote" | "grave" | "backtick" => return Some('`'),
+        _ => {}
+    }
+    let mut chars = key.chars();
+    match (chars.next(), chars.next()) {
+        (Some(c), None) if !c.is_alphanumeric() && !c.is_whitespace() && c != '+' => Some(c),
+        _ => None,
+    }
+}
+
+/// A quick tap of a printable dictation key (the macOS `~` key) is discarded
+/// as too short to hold speech, but the key itself is blocked from reaching the
+/// focused app — so without this a plain ` could never be typed while NSM Flow
+/// runs. Type the character back. Only handy-keys (macOS/Windows) is safe: its
+/// synthetic Unicode events do not match the hotkey, whereas an X11 grab would
+/// see the retyped key as another press and loop.
+fn retype_lone_key(app: &AppHandle, hotkey: &str) {
+    if cfg!(target_os = "linux") {
+        return;
+    }
+    if crate::settings::get_settings(app).keyboard_implementation
+        != crate::settings::KeyboardImplementation::HandyKeys
+    {
+        return;
+    }
+    let Some(ch) = lone_key_char(hotkey) else {
+        return;
+    };
+    let app_for_main = app.clone();
+    let result = app.run_on_main_thread(move || {
+        let Some(state) = app_for_main.try_state::<crate::input::EnigoState>() else {
+            return;
+        };
+        let Ok(mut enigo) = state.0.lock() else {
+            return;
+        };
+        if let Err(e) = crate::input::paste_text_direct(&mut enigo, &ch.to_string()) {
+            warn!("Could not retype the dictation key after a lone tap: {e}");
+        }
+    });
+    if let Err(e) = result {
+        warn!("Could not schedule retyping the dictation key: {e:?}");
     }
 }
 
@@ -765,6 +829,30 @@ mod tests {
         k.press(t, true, false);
         k.release(ms(t, 100), true);
         assert_eq!(k.press(ms(t, 600), false, true), PttDecision::Cancel);
+    }
+
+    #[test]
+    fn a_lone_tap_of_the_backtick_key_gives_the_character_back() {
+        assert_eq!(lone_key_char("`"), Some('`'));
+        assert_eq!(lone_key_char("Backquote"), Some('`'));
+        assert_eq!(lone_key_char(";"), Some(';'));
+    }
+
+    #[test]
+    fn combos_letters_and_named_keys_are_not_retyped() {
+        for hotkey in [
+            "ctrl+space",
+            "option+`",
+            "fn",
+            "a",
+            "7",
+            "space",
+            "f5",
+            "+",
+            "",
+        ] {
+            assert_eq!(lone_key_char(hotkey), None, "{hotkey}");
+        }
     }
 
     #[test]

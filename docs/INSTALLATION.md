@@ -15,8 +15,10 @@ several GB of free space for the first model download.
    Accessibility**, enable NSM Flow so it can paste into other apps. Restart NSM
    Flow normally if macOS requests it.
 4. Download a speech model, select your microphone and language, and check the
-   shortcut shown in Settings. New macOS settings use **Fn** for push-to-talk;
-   existing installations keep their chosen shortcut.
+   shortcut shown in Settings. On a Mac the dictation key is **`~`** (the key
+   left of 1): hold it to talk, or double-tap it for hands-free and tap once
+   more to finish. **Shift+Escape** throws a recording away. Change either under
+   **General › Transcribe Shortcut**.
 5. Open a disposable TextEdit document, hold the shortcut, speak a sentence,
    and release. Wait for transcription and check the pasted text.
 

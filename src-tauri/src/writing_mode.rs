@@ -94,7 +94,7 @@ static CHORD_QUALITY: Lazy<Regex> = Lazy::new(|| {
     let upper_extensions = r"(?:seven(?:th)?|7(?:th)?|nine|ninth|9(?:th)?|eleven(?:th)?|11(?:th)?|thirteen(?:th)?|13(?:th)?)";
     let extensions = format!(r"(?:six(?:th)?|6(?:th)?|{upper_extensions})");
     Regex::new(&format!(
-        r"(?i)\b([a-g])([♭♯♮𝄫𝄪]?)[ \t]+(half[ \t]+diminished(?:[ \t]+{seventh})?|major[ \t]+{extensions}|minor[ \t]+{extensions}|dominant(?:[ \t]+{upper_extensions})?|diminished(?:[ \t]+{seventh})?|augmented|suspended[ \t]+(?:two|2|four|4)|sus[ \t]+(?:two|2|four|4)|add[ \t]+(?:two|2|four|4|six|6|nine|9|eleven|11|thirteen|13)|power[ \t]+(?:five|5)|{extensions})(?:[ \t]+((?:flat|sharp)[ \t]+(?:five|5|nine|9|eleven|11|thirteen|13)))?(?:[ \t]+chord)?\b",
+        r"(?i)\b([a-g])([♭♯♮𝄫𝄪]?)[ \t]+(half[ \t]+diminished(?:[ \t]+{seventh})?|minor[ \t]+major[ \t]+{seventh}|major[ \t]+{extensions}|minor[ \t]+{extensions}|dominant(?:[ \t]+{upper_extensions})?|diminished(?:[ \t]+{seventh})?|augmented(?:[ \t]+{seventh})?|suspended[ \t]+(?:two|2|four|4)|sus[ \t]+(?:two|2|four|4)|add[ \t]+(?:two|2|four|4|six|6|nine|9|eleven|11|thirteen|13)|power[ \t]+(?:five|5)|{extensions})(?:[ \t]+((?:flat|sharp)[ \t]+(?:five|5|nine|9|eleven|11|thirteen|13)))?(?:[ \t]+chord)?\b",
     ))
     .expect("valid chord quality regex")
 });
@@ -111,7 +111,7 @@ static SIMPLE_TRIAD: Lazy<Regex> = Lazy::new(|| {
 /// restored because Rust regex deliberately has no look-around support.
 static SLASH_CHORD: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
-        r"\b([A-G](?:[♭♯♮𝄫𝄪])?(?:maj(?:6|7|9|11|13)|m(?:6|7|9|11|13)?|ø7?|°7?|aug|sus[24]|add(?:2|4|6|9|11|13)|[5679]|11|13)?(?:[♭♯](?:5|9|11|13))?)[ \t]+(?:over|slash)[ \t]+([A-G])([♭♯♮𝄫𝄪]?)([ \t]+|[,.;:!?]|$)",
+        r"\b([A-G](?:[♭♯♮𝄫𝄪])?(?:maj(?:6|7|9|11|13)|m\(maj7\)|m(?:6|7|9|11|13)?|ø7?|°7?|aug7?|sus[24]|add(?:2|4|6|9|11|13)|[5679]|11|13)?(?:[♭♯](?:5|9|11|13))?)[ \t]+(?:over|slash)[ \t]+([A-G])([♭♯♮𝄫𝄪]?)([ \t]+|[,.;:!?]|$)",
     )
     .expect("valid slash chord regex")
 });
@@ -182,7 +182,25 @@ fn accidental_symbol(spoken: &str) -> &'static str {
     }
 }
 
-fn should_format_note(text: &str, captures: &regex::Captures<'_>) -> bool {
+/// Words that can follow a spoken pitch in a musical instruction ("play A flat
+/// and C", "A flat over C"). An ordinary noun after "a flat" cannot.
+const MUSICAL_CONTINUATIONS: &[&str] = &[
+    "", "and", "or", "then", "to", "over", "slash", "in", "on", "before", "after", "with", "again",
+    "twice",
+];
+
+fn next_word_after(text: &str, end: usize) -> String {
+    text[end..]
+        .trim_start_matches(|character: char| {
+            character.is_whitespace() || character.is_ascii_punctuation()
+        })
+        .split(|character: char| !character.is_alphanumeric())
+        .find(|word| !word.is_empty())
+        .unwrap_or("")
+        .to_ascii_lowercase()
+}
+
+fn should_format_note(text: &str, captures: &regex::Captures<'_>, mode: WritingMode) -> bool {
     let note_match = captures.get(1).expect("note capture");
     if !note_match.as_str().eq_ignore_ascii_case("a") {
         return true;
@@ -194,38 +212,71 @@ fn should_format_note(text: &str, captures: &regex::Captures<'_>) -> bool {
         .rfind(|word| !word.is_empty())
         .unwrap_or("")
         .to_ascii_lowercase();
-    let after = text[whole_match.end()..]
-        .trim_start_matches(|character: char| {
-            character.is_whitespace() || character.is_ascii_punctuation()
-        })
-        .split(|character: char| !character.is_alphanumeric())
-        .find(|word| !word.is_empty())
-        .unwrap_or("")
-        .to_ascii_lowercase();
+    let after = next_word_after(text, whole_match.end());
 
     // The note A is also the English article "a". Convert it when the nearby
-    // wording is musical, or when the pitch is a standalone item. This avoids
-    // damaging ordinary phrases such as "a flat fee" and "a natural ability".
-    after.is_empty()
-        || [
-            "major",
-            "minor",
-            "chord",
-            "scale",
-            "key",
-            "note",
-            "octave",
-            "triad",
-            "seventh",
-            "seven",
-            "arpeggio",
-            "inversion",
-        ]
-        .contains(&after.as_str())
+    // wording is musical. This avoids damaging ordinary phrases such as
+    // "a flat fee", "write a sharp reply" and "I got a flat".
+    if [
+        "major",
+        "minor",
+        "chord",
+        "scale",
+        "key",
+        "note",
+        "octave",
+        "triad",
+        "seventh",
+        "seven",
+        "arpeggio",
+        "inversion",
+    ]
+    .contains(&after.as_str())
+    {
+        return true;
+    }
+    if !MUSICAL_CONTINUATIONS.contains(&after.as_str()) {
+        return false;
+    }
+    mode == WritingMode::Music
         || [
             "play", "sing", "hear", "write", "type", "pitch", "note", "chord", "key", "scale",
         ]
         .contains(&before.as_str())
+        || (after.is_empty() && MUSIC_CONTEXT.is_match(&text[..whole_match.start()]))
+}
+
+/// The spoken note A is indistinguishable from the English article. A musical
+/// word elsewhere in the sentence must not turn "a minor delay" into "Am delay"
+/// or "a seven year old" into "A7 year old".
+fn should_format_chord(text: &str, captures: &regex::Captures<'_>, mode: WritingMode) -> bool {
+    if mode == WritingMode::Music
+        || !captures[1].eq_ignore_ascii_case("a")
+        || captures
+            .get(2)
+            .is_some_and(|value| !value.as_str().is_empty())
+    {
+        return true;
+    }
+    let matched = captures.get(0).expect("chord capture");
+    if matched.as_str().to_ascii_lowercase().ends_with(" chord") {
+        return true;
+    }
+    let tail = text[matched.end()..].trim_start();
+    let next_word = tail
+        .split(|c: char| !c.is_alphabetic())
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if ["chord", "scale", "triad"].contains(&next_word.as_str()) {
+        return true;
+    }
+    // Explicit musical instructions/lists can end in an A chord or continue
+    // with another chord/bass note. Ordinary noun/adjective continuations cannot.
+    let musical_continuation = tail.is_empty()
+        || tail.starts_with([',', '.', ';', ':', '!', '?'])
+        || ["and", "or", "then", "over", "slash", "before"].contains(&next_word.as_str());
+    musical_continuation && MUSIC_CONTEXT.is_match(&text[..matched.start()])
 }
 
 fn spoken_number(spoken: &str) -> &str {
@@ -273,6 +324,7 @@ fn chord_quality_symbol(spoken: &str) -> String {
                 }
             })
             .unwrap_or_default(),
+        Some("minor") if word(1) == Some("major") => "m(maj7)".to_string(),
         Some("minor") => word(1)
             .map(|extension| format!("m{}", spoken_number(extension)))
             .unwrap_or_else(|| "m".to_string()),
@@ -282,7 +334,9 @@ fn chord_quality_symbol(spoken: &str) -> String {
         Some("diminished") => word(1)
             .map(|extension| format!("°{}", spoken_number(extension)))
             .unwrap_or_else(|| "°".to_string()),
-        Some("augmented") => "aug".to_string(),
+        Some("augmented") => word(1)
+            .map(|extension| format!("aug{}", spoken_number(extension)))
+            .unwrap_or_else(|| "aug".to_string()),
         Some("suspended" | "sus") => word(1)
             .map(|extension| format!("sus{}", spoken_number(extension)))
             .unwrap_or_else(|| "sus".to_string()),
@@ -371,7 +425,7 @@ fn should_compact_triad(text: &str, captures: &regex::Captures<'_>) -> bool {
 
 fn format_music_notation(text: &str, mode: WritingMode) -> String {
     let with_notes = MUSICAL_NOTE.replace_all(text, |captures: &regex::Captures<'_>| {
-        if !should_format_note(text, captures) {
+        if !should_format_note(text, captures, mode) {
             return captures
                 .get(0)
                 .expect("musical note capture")
@@ -402,6 +456,9 @@ fn format_music_notation(text: &str, mode: WritingMode) -> String {
 
     let with_chord_qualities = CHORD_QUALITY
         .replace_all(&with_signs, |captures: &regex::Captures<'_>| {
+            if !should_format_chord(&with_signs, captures, mode) {
+                return captures[0].to_string();
+            }
             let root = captures
                 .get(1)
                 .expect("chord root capture")
@@ -421,7 +478,9 @@ fn format_music_notation(text: &str, mode: WritingMode) -> String {
     let with_triads = if music_context {
         SIMPLE_TRIAD
             .replace_all(&with_chord_qualities, |captures: &regex::Captures<'_>| {
-                if !should_compact_triad(&with_chord_qualities, captures) {
+                if !should_format_chord(&with_chord_qualities, captures, mode)
+                    || !should_compact_triad(&with_chord_qualities, captures)
+                {
                     return captures.get(0).expect("triad capture").as_str().to_string();
                 }
                 let root = captures
@@ -936,6 +995,63 @@ mod tests {
                 WritingMode::Email,
             ),
             "Please practice C and Am before class."
+        );
+    }
+
+    #[test]
+    fn general_prose_never_uses_the_article_a_as_a_chord() {
+        for mode in [
+            WritingMode::General,
+            WritingMode::Email,
+            WritingMode::Messaging,
+            WritingMode::Document,
+        ] {
+            for text in [
+                "Write a major report about the delay.",
+                "Please note a minor problem with the payment.",
+                "It was a dominant performance.",
+                "We hired a diminished team.",
+                "A seven year old can join.",
+                "She has a six pack.",
+                "Play the recording after a minor delay.",
+                "Practice regularly despite a major problem.",
+                "The chord lesson caused a major delay.",
+                "Please write a sharp reply.",
+                "I got a flat.",
+                "Type a natural sentence.",
+            ] {
+                assert_eq!(local_format(text, mode), text, "mode: {mode:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn spoken_a_still_becomes_a_note_in_musical_sentences() {
+        assert_eq!(
+            local_format(
+                "Play a flat and C, then sing a sharp.",
+                WritingMode::General
+            ),
+            "Play A♭ and C, then sing A♯."
+        );
+        assert_eq!(
+            local_format("Practice C major, F and A minor.", WritingMode::Messaging),
+            "Practice C, F and Am."
+        );
+        assert_eq!(
+            local_format("Play the A minor chord twice.", WritingMode::Email),
+            "Play the Am twice."
+        );
+    }
+
+    #[test]
+    fn minor_major_and_augmented_sevenths_are_spelled_correctly() {
+        assert_eq!(
+            local_format(
+                "Play C minor major seven, G augmented seven and E minor major 7th over G.",
+                WritingMode::Music,
+            ),
+            "Play Cm(maj7), Gaug7 and Em(maj7)/G."
         );
     }
 

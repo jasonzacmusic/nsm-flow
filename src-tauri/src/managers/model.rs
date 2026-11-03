@@ -2491,6 +2491,16 @@ mod tests {
     }
 
     #[test]
+    fn effective_language_keeps_auto_for_multilingual_and_english_for_en_only() {
+        let whisper: Vec<String> = ["en", "hi", "ta"].iter().map(|s| s.to_string()).collect();
+        assert_eq!(effective_language("auto", &whisper, true), "auto");
+        assert_eq!(effective_language("hi", &whisper, true), "hi");
+        let english_only = vec!["en".to_string()];
+        assert_eq!(effective_language("auto", &english_only, false), "en");
+        assert_eq!(effective_language("hi", &english_only, false), "en");
+    }
+
+    #[test]
     fn test_effective_language_falls_back_to_canonical_chinese() {
         let languages = vec!["zh-Hant".to_string()];
 

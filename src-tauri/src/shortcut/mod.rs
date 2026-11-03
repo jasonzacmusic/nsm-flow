@@ -174,19 +174,38 @@ pub fn change_binding(
         }
     };
 
-    // If this is the cancel binding, just update the settings and return
-    // It's managed dynamically, so we don't register/unregister here
-    if id == "cancel" {
-        if let Some(mut b) = settings.bindings.get(&id).cloned() {
-            b.current_binding = binding;
-            settings.bindings.insert(id.clone(), b.clone());
-            settings::write_settings(&app, settings);
-            return Ok(BindingResponse {
-                success: true,
-                binding: Some(b.clone()),
-                error: None,
-            });
-        }
+    // Validate before touching the live registration, so a rejected shortcut
+    // never leaves the old one unregistered (and dictation dead).
+    if let Err(e) = validate_shortcut_for_implementation(&binding, settings.keyboard_implementation)
+    {
+        warn!("change_binding validation error: {}", e);
+        return Err(e);
+    }
+
+    // Two actions on one key would shadow each other (and handy-keys refuses
+    // the second registration), so reject it with a message naming the clash.
+    if let Some(other) = find_binding_conflict(&settings.bindings, &id, &binding) {
+        let error_msg = format!("This shortcut is already used by '{}'", other);
+        warn!("change_binding conflict: {}", error_msg);
+        return Ok(BindingResponse {
+            success: false,
+            binding: None,
+            error: Some(error_msg),
+        });
+    }
+
+    // The cancel binding is registered only while recording, and the
+    // post-processing shortcut only while that feature is on, so just save.
+    if id == "cancel" || (id == "transcribe_with_post_process" && !settings.post_process_enabled) {
+        let mut b = binding_to_modify;
+        b.current_binding = binding;
+        settings.bindings.insert(id.clone(), b.clone());
+        settings::write_settings(&app, settings);
+        return Ok(BindingResponse {
+            success: true,
+            binding: Some(b),
+            error: None,
+        });
     }
 
     // Unregister the existing binding
@@ -195,21 +214,21 @@ pub fn change_binding(
         error!("change_binding error: {}", error_msg);
     }
 
-    // Validate the new shortcut for the current keyboard implementation
-    if let Err(e) = validate_shortcut_for_implementation(&binding, settings.keyboard_implementation)
-    {
-        warn!("change_binding validation error: {}", e);
-        return Err(e);
-    }
-
     // Create an updated binding
-    let mut updated_binding = binding_to_modify;
+    let mut updated_binding = binding_to_modify.clone();
     updated_binding.current_binding = binding;
 
     // Register the new binding
     if let Err(e) = register_shortcut(&app, updated_binding.clone()) {
         let error_msg = format!("Failed to register shortcut: {}", e);
         error!("change_binding error: {}", error_msg);
+        // Keep the previous shortcut working rather than leaving none.
+        if let Err(restore) = register_shortcut(&app, binding_to_modify) {
+            warn!(
+                "Could not restore previous shortcut for '{}': {}",
+                id, restore
+            );
+        }
         return Ok(BindingResponse {
             success: false,
             binding: None,
@@ -356,6 +375,54 @@ pub fn get_keyboard_implementation(app: AppHandle) -> String {
 // ============================================================================
 // Validation Helpers
 // ============================================================================
+
+/// Canonical form of a shortcut so spelling variants compare equal:
+/// case, order, and aliases such as option/alt, command/cmd/meta/super,
+/// control/ctrl, esc/escape and backquote/grave/`.
+fn canonical_shortcut(raw: &str) -> Vec<String> {
+    let mut parts: Vec<String> = raw
+        .split('+')
+        .map(|p| p.trim().to_lowercase())
+        .filter(|p| !p.is_empty())
+        // option_left and option both fire on the left Option key.
+        .map(|p| {
+            p.strip_suffix("_left")
+                .or_else(|| p.strip_suffix("_right"))
+                .map(str::to_string)
+                .unwrap_or(p)
+        })
+        .map(|p| {
+            match p.as_str() {
+                "alt" | "opt" => "option",
+                "cmd" | "meta" | "super" | "win" | "windows" => "command",
+                "control" => "ctrl",
+                "escape" => "esc",
+                "backquote" | "grave" | "backtick" => "`",
+                "function" => "fn",
+                other => return other.to_string(),
+            }
+            .to_string()
+        })
+        .collect();
+    parts.sort();
+    parts.dedup();
+    parts
+}
+
+/// The id of another binding that already uses `raw`, if any.
+fn find_binding_conflict(
+    bindings: &std::collections::HashMap<String, ShortcutBinding>,
+    id: &str,
+    raw: &str,
+) -> Option<String> {
+    let wanted = canonical_shortcut(raw);
+    let mut ids: Vec<&String> = bindings.keys().collect();
+    ids.sort();
+    ids.into_iter()
+        .filter(|other| other.as_str() != id)
+        .find(|other| canonical_shortcut(&bindings[*other].current_binding) == wanted)
+        .cloned()
+}
 
 /// Validate a shortcut for a specific implementation
 fn validate_shortcut_for_implementation(
@@ -1357,6 +1424,53 @@ mod tests {
         assert_eq!(
             settings.bindings["transcribe"].current_binding,
             "ctrl+shift+k"
+        );
+    }
+
+    #[test]
+    fn conflicting_shortcuts_are_found_across_spellings() {
+        let mut settings = settings::get_default_settings();
+        settings
+            .bindings
+            .get_mut("transcribe")
+            .expect("transcribe binding")
+            .current_binding = "ctrl+space".to_string();
+
+        assert_eq!(
+            find_binding_conflict(&settings.bindings, "cancel", "Space+Control"),
+            Some("transcribe".to_string())
+        );
+        assert_eq!(
+            find_binding_conflict(&settings.bindings, "transcribe", "Shift+Escape"),
+            Some("cancel".to_string())
+        );
+    }
+
+    #[test]
+    fn a_binding_does_not_conflict_with_itself() {
+        let settings = settings::get_default_settings();
+        let own = settings.bindings["transcribe"].current_binding.clone();
+        assert_eq!(
+            find_binding_conflict(&settings.bindings, "transcribe", &own),
+            None
+        );
+        assert_eq!(
+            find_binding_conflict(&settings.bindings, "transcribe", "ctrl+shift+k"),
+            None
+        );
+    }
+
+    #[test]
+    fn backquote_spellings_are_the_same_key() {
+        assert_eq!(canonical_shortcut("`"), canonical_shortcut("Backquote"));
+        assert_eq!(
+            canonical_shortcut("alt+space"),
+            canonical_shortcut("option+space")
+        );
+        assert_ne!(canonical_shortcut("shift+`"), canonical_shortcut("`"));
+        assert_eq!(
+            canonical_shortcut("option_left+space"),
+            canonical_shortcut("alt+space")
         );
     }
 }

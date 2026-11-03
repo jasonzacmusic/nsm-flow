@@ -89,12 +89,29 @@ impl HandyKeysState {
     /// Create a new HandyKeysState
     pub fn new(app: AppHandle) -> Result<Self, String> {
         let (cmd_tx, cmd_rx) = mpsc::channel::<ManagerCommand>();
+        let (ready_tx, ready_rx) = mpsc::channel::<Result<(), String>>();
 
         // Start the manager thread
         let app_clone = app.clone();
         let thread_handle = thread::spawn(move || {
-            Self::manager_thread(cmd_rx, app_clone);
+            Self::manager_thread(cmd_rx, ready_tx, app_clone);
         });
+
+        // Wait until the thread has created its HotkeyManager. Without this a
+        // failure (e.g. macOS Accessibility not yet granted) was only logged
+        // inside the thread: init reported success, the Tauri fallback never
+        // ran, and every shortcut stayed silently dead until a restart.
+        match ready_rx.recv_timeout(std::time::Duration::from_secs(10)) {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => {
+                let _ = thread_handle.join();
+                return Err(e);
+            }
+            Err(_) => {
+                let _ = cmd_tx.send(ManagerCommand::Shutdown);
+                return Err("handy-keys manager did not start".into());
+            }
+        }
 
         Ok(Self {
             command_sender: Mutex::new(cmd_tx),
@@ -107,14 +124,22 @@ impl HandyKeysState {
     }
 
     /// The main manager thread - owns the HotkeyManager and processes commands
-    fn manager_thread(cmd_rx: Receiver<ManagerCommand>, app: AppHandle) {
+    fn manager_thread(
+        cmd_rx: Receiver<ManagerCommand>,
+        ready: Sender<Result<(), String>>,
+        app: AppHandle,
+    ) {
         info!("handy-keys manager thread started");
 
         // Create the HotkeyManager in this thread
         let manager = match HotkeyManager::new_with_blocking() {
-            Ok(m) => m,
+            Ok(m) => {
+                let _ = ready.send(Ok(()));
+                m
+            }
             Err(e) => {
                 error!("Failed to create HotkeyManager: {}", e);
+                let _ = ready.send(Err(format!("Failed to create HotkeyManager: {}", e)));
                 return;
             }
         };
@@ -195,9 +220,36 @@ impl HandyKeysState {
             .parse()
             .map_err(|e| format!("Failed to parse hotkey '{}': {}", hotkey_string, e))?;
 
-        let id = manager
-            .register(hotkey)
-            .map_err(|e| format!("Failed to register hotkey: {}", e))?;
+        // A binding owns at most one hotkey. Registering it again (resume after
+        // a change, toggling post-processing twice) used to overwrite the map
+        // entry and leave the old hotkey registered and still firing.
+        let mut previous: Option<(Hotkey, String)> = None;
+        if let Some(old_id) = binding_to_hotkey.get(binding_id).copied() {
+            let old_hotkey = manager.get_hotkey(old_id);
+            if old_hotkey == Some(hotkey) {
+                return Ok(());
+            }
+            let _ = manager.unregister(old_id);
+            binding_to_hotkey.remove(binding_id);
+            if let (Some(h), Some((_, s))) = (old_hotkey, hotkey_to_binding.remove(&old_id)) {
+                previous = Some((h, s));
+            }
+        }
+
+        let id = match manager.register(hotkey) {
+            Ok(id) => id,
+            Err(e) => {
+                // Put the previous hotkey back so a rejected change leaves the
+                // old shortcut working.
+                if let Some((old_hotkey, old_string)) = previous {
+                    if let Ok(old_id) = manager.register(old_hotkey) {
+                        binding_to_hotkey.insert(binding_id.to_string(), old_id);
+                        hotkey_to_binding.insert(old_id, (binding_id.to_string(), old_string));
+                    }
+                }
+                return Err(format!("Failed to register hotkey: {}", e));
+            }
+        };
 
         binding_to_hotkey.insert(binding_id.to_string(), id);
         hotkey_to_binding.insert(id, (binding_id.to_string(), hotkey_string.to_string()));

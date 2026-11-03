@@ -162,4 +162,28 @@ mod tests {
             missing
         );
     }
+
+    #[test]
+    fn indian_language_whisper_small_is_the_top_recommended_pick() {
+        let first = CATALOG
+            .iter()
+            .filter(|d| d.recommended)
+            .min_by_key(|d| d.recommended_rank.unwrap_or(u32::MAX))
+            .expect("catalog has a recommended model");
+        assert!(
+            first.id.starts_with("handy-computer/whisper-small-gguf/"),
+            "{}",
+            first.id
+        );
+        assert_eq!(first.caps.supports_language_detect, Some(true));
+        let langs = first.caps.languages.as_deref().unwrap_or_default();
+        for code in [
+            "en", "hi", "ta", "kn", "te", "ml", "bn", "mr", "gu", "pa", "ur",
+        ] {
+            assert!(
+                langs.iter().any(|l| l == code),
+                "whisper-small missing {code}"
+            );
+        }
+    }
 }

@@ -11,6 +11,10 @@ on:
         description: Release tag to test
         required: true
         default: v0.3.0-alpha.8
+      platforms:
+        description: all, windows, linux or mac
+        required: false
+        default: all
 
 permissions:
   contents: read
@@ -20,6 +24,7 @@ env:
 
 jobs:
   windows:
+    if: inputs.platforms == 'all' || inputs.platforms == 'windows'
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -68,6 +73,7 @@ jobs:
           path: shots/
 
   linux:
+    if: inputs.platforms == 'all' || inputs.platforms == 'linux'
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +113,8 @@ jobs:
           xwininfo -root -tree | grep -i "flow" || echo "no NSM Flow window mapped"
           import -window root "shots/${{ matrix.os }}-${{ matrix.kind }}.png"
           echo "Running after 25s, pid $PID"; tail -20 app.log || true
+          ps -ef | grep -iE "nsm-flow|WebKit|bwrap" | grep -v grep || true
+          find ~/.local/share ~/.config -ipath '*nsmflow*' -name '*.log' -exec tail -80 {} \; 2>/dev/null || true
           kill $PID || true
       - uses: actions/upload-artifact@v4
         if: always()
@@ -115,6 +123,7 @@ jobs:
           path: shots/
 
   mac:
+    if: inputs.platforms == 'all' || inputs.platforms == 'mac'
     strategy:
       fail-fast: false
       matrix:

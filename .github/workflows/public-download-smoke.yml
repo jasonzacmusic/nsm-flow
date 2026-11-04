@@ -88,7 +88,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           # Cloud runners have no GPU; desktops ship these graphics libraries already.
-          sudo apt-get install -y -qq xvfb imagemagick x11-utils libegl1 libgl1-mesa-dri libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick x11-utils libegl1 libgl1-mesa-dri libfuse2 >/dev/null
+          sudo apt-get install -y -qq xvfb imagemagick x11-utils gdb libegl1 libgl1-mesa-dri libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick x11-utils gdb libegl1 libgl1-mesa-dri libfuse2 >/dev/null
           if [ "${{ matrix.kind }}" = deb ]; then
             curl -fsSL -o flow.deb "$BASE/NSM-Flow-linux-x64.deb"
             sudo apt-get install -y ./flow.deb
@@ -115,6 +115,9 @@ jobs:
           echo "Running after 25s, pid $PID"; tail -20 app.log || true
           ps -ef | grep -iE "nsm-flow|WebKit|bwrap" | grep -v grep || true
           find ~/.local/share ~/.config -ipath '*nsmflow*' -name '*.log' -exec tail -80 {} \; 2>/dev/null || true
+          if ! xwininfo -root -tree | grep -q '"NSM Flow"'; then
+            sudo gdb -p $PID -batch -ex "thread apply all bt 25" 2>/dev/null | grep -E "^Thread|^#" | head -150 || true
+          fi
           kill $PID || true
       - uses: actions/upload-artifact@v4
         if: always()

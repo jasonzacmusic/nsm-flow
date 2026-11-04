@@ -1,0 +1,153 @@
+name: Public download smoke test
+
+# Downloads the exact files the Labs page links to, installs each one on a
+# clean machine, launches NSM Flow and photographs its first window.
+# It cannot speak into a microphone, so dictation itself stays a human check.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to test
+        required: true
+        default: v0.3.0-alpha.8
+
+permissions:
+  contents: read
+
+env:
+  BASE: https://github.com/${{ github.repository }}/releases/download/${{ inputs.tag }}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [zip, msi]
+    steps:
+      - name: Download and install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ('${{ matrix.kind }}' -eq 'zip') {
+            Invoke-WebRequest "$env:BASE/NSM-Flow-windows-x64-setup.zip" -OutFile flow.zip
+            Expand-Archive flow.zip -DestinationPath flow
+            Get-ChildItem flow | Format-Table Name, Length
+            if (-not (Test-Path 'flow/READ ME FIRST.txt')) { throw 'READ ME FIRST.txt missing from the zip' }
+            Start-Process -FilePath 'flow/NSM-Flow-windows-x64-setup.exe' -ArgumentList '/S' -Wait
+          } else {
+            Invoke-WebRequest "$env:BASE/NSM-Flow-windows-x64.msi" -OutFile flow.msi
+            $p = Start-Process msiexec.exe -ArgumentList '/i', "$PWD\flow.msi", '/qn', '/l*v', 'msi.log' -Wait -PassThru
+            if ($p.ExitCode -ne 0) { Get-Content msi.log -Tail 40; throw "msiexec exit $($p.ExitCode)" }
+          }
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs", "$env:LOCALAPPDATA", 'C:\Program Files', 'C:\Program Files (x86)' -Recurse -Filter '*.exe' -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match 'NSM Flow' -and $_.Name -notmatch 'unins|uninstall' } | Select-Object -First 1
+          if (-not $exe) { throw 'Installed NSM Flow executable not found' }
+          "EXE=$($exe.FullName)" | Out-File -Append $env:GITHUB_ENV
+          Write-Host "Installed: $($exe.FullName)"
+      - name: Launch and photograph
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $proc = Start-Process -FilePath $env:EXE -PassThru
+          Start-Sleep -Seconds 25
+          if ($proc.HasExited) { throw "NSM Flow exited early with code $($proc.ExitCode)" }
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force shots | Out-Null
+          $bmp.Save("shots/windows-${{ matrix.kind }}.png")
+          Write-Host "Running after 25s, pid $($proc.Id)"
+          Stop-Process -Id $proc.Id -Force
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shot-windows-${{ matrix.kind }}
+          path: shots/
+
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, kind: deb }
+          - { os: ubuntu-24.04, kind: deb }
+          - { os: ubuntu-24.04, kind: AppImage }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Download and install
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb imagemagick libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick libfuse2 >/dev/null
+          if [ "${{ matrix.kind }}" = deb ]; then
+            curl -fsSL -o flow.deb "$BASE/NSM-Flow-linux-x64.deb"
+            sudo apt-get install -y ./flow.deb
+            BIN=$(dpkg -L "$(dpkg-deb -f flow.deb Package)" | grep -E '^/usr/bin/' | head -1)
+          else
+            curl -fsSL -o flow.AppImage "$BASE/NSM-Flow-linux-x64.AppImage"
+            chmod +x flow.AppImage
+            BIN="$PWD/flow.AppImage"
+          fi
+          test -x "$BIN"
+          echo "BIN=$BIN" >> "$GITHUB_ENV"
+          echo "Installed: $BIN"
+      - name: Launch and photograph
+        run: |
+          set -euo pipefail
+          mkdir -p shots
+          Xvfb :99 -screen 0 1280x800x24 & sleep 2
+          export DISPLAY=:99 HANDY_NO_GTK_LAYER_SHELL=1 APPIMAGE_EXTRACT_AND_RUN=1
+          "$BIN" > app.log 2>&1 & PID=$!
+          sleep 25
+          if ! kill -0 $PID 2>/dev/null; then cat app.log; echo "NSM Flow exited early"; exit 1; fi
+          import -window root "shots/${{ matrix.os }}-${{ matrix.kind }}.png"
+          echo "Running after 25s, pid $PID"; tail -20 app.log || true
+          kill $PID || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shot-${{ matrix.os }}-${{ matrix.kind }}
+          path: shots/
+
+  mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, file: NSM-Flow-mac-Apple-Silicon.dmg, label: apple-silicon }
+          - { os: macos-15-intel, file: NSM-Flow-mac-Intel.dmg, label: intel }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Download, check Apple notarization, install
+        run: |
+          set -euo pipefail
+          curl -fsSL -o flow.dmg "$BASE/${{ matrix.file }}"
+          xcrun stapler validate flow.dmg
+          spctl -a -vv -t open --context context:primary-signature flow.dmg
+          MNT=$(hdiutil attach -nobrowse flow.dmg | tail -1 | cut -f3-)
+          cp -R "$MNT"/*.app /Applications/
+          hdiutil detach "$MNT"
+          APP=$(ls -d /Applications/NSM*Flow*.app | head -1)
+          spctl -a -vv "$APP"
+          codesign --verify --deep --strict "$APP"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          echo "Installed: $APP ($(lipo -archs "$APP"/Contents/MacOS/* 2>/dev/null | head -1))"
+      - name: Launch and photograph
+        run: |
+          set -euo pipefail
+          mkdir -p shots
+          BIN=$(ls "$APP"/Contents/MacOS/* | head -1)
+          "$BIN" > app.log 2>&1 & PID=$!
+          sleep 25
+          if ! kill -0 $PID 2>/dev/null; then cat app.log; echo "NSM Flow exited early"; exit 1; fi
+          screencapture -x "shots/mac-${{ matrix.label }}.png" || true
+          echo "Running after 25s, pid $PID"
+          kill $PID || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shot-mac-${{ matrix.label }}
+          path: shots/

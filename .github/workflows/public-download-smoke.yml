@@ -81,7 +81,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq xvfb imagemagick libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick libfuse2 >/dev/null
+          # Cloud runners have no GPU; desktops ship these graphics libraries already.
+          sudo apt-get install -y -qq xvfb imagemagick x11-utils libegl1 libgl1-mesa-dri libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick x11-utils libegl1 libgl1-mesa-dri libfuse2 >/dev/null
           if [ "${{ matrix.kind }}" = deb ]; then
             curl -fsSL -o flow.deb "$BASE/NSM-Flow-linux-x64.deb"
             sudo apt-get install -y ./flow.deb
@@ -99,10 +100,11 @@ jobs:
           set -euo pipefail
           mkdir -p shots
           Xvfb :99 -screen 0 1280x800x24 & sleep 2
-          export DISPLAY=:99 HANDY_NO_GTK_LAYER_SHELL=1 APPIMAGE_EXTRACT_AND_RUN=1
+          export DISPLAY=:99 HANDY_NO_GTK_LAYER_SHELL=1 APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
           "$BIN" > app.log 2>&1 & PID=$!
           sleep 25
           if ! kill -0 $PID 2>/dev/null; then cat app.log; echo "NSM Flow exited early"; exit 1; fi
+          xwininfo -root -tree | grep -i "flow" || echo "no NSM Flow window mapped"
           import -window root "shots/${{ matrix.os }}-${{ matrix.kind }}.png"
           echo "Running after 25s, pid $PID"; tail -20 app.log || true
           kill $PID || true
@@ -141,8 +143,9 @@ jobs:
           mkdir -p shots
           BIN=$(ls "$APP"/Contents/MacOS/* | head -1)
           "$BIN" > app.log 2>&1 & PID=$!
-          sleep 25
+          sleep 45
           if ! kill -0 $PID 2>/dev/null; then cat app.log; echo "NSM Flow exited early"; exit 1; fi
+          osascript -e 'tell application "System Events" to get {name, count of windows} of (every process whose name contains "Flow")' || true
           screencapture -x "shots/mac-${{ matrix.label }}.png" || true
           echo "Running after 25s, pid $PID"
           kill $PID || true

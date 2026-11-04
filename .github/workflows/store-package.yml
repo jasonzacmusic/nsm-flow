@@ -1,0 +1,134 @@
+name: Microsoft Store package
+
+# Builds NSM Flow from this commit, wraps it in an MSIX for the Microsoft Store,
+# then installs that MSIX on a clean Windows machine and checks it opens.
+# The unsigned .msix artifact is what gets uploaded to Partner Center; the
+# Store signs it. The identity inputs must match Partner Center
+# (Product management > Product identity) before a real submission.
+
+on:
+  workflow_dispatch:
+    inputs:
+      identity_name:
+        description: Package/Identity/Name from Partner Center
+        required: true
+        default: NathanielSchoolofMusic.NSMFlow
+      publisher:
+        description: Package/Identity/Publisher from Partner Center (CN=...)
+        required: true
+        default: CN=Nathaniel School of Music
+      publisher_display_name:
+        description: Package/Properties/PublisherDisplayName from Partner Center
+        required: true
+        default: Nathaniel School of Music
+      msix_version:
+        description: Four-part version; the last part must be 0 for the Store
+        required: true
+        default: 0.3.9.0
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      platform: windows-latest
+      target: x86_64-pc-windows-msvc
+      asset-prefix: nsm-flow-store
+      upload-artifacts: true
+      sign-binaries: false
+    secrets: inherit
+
+  package:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: nsm-flow-store-x86_64-pc-windows-msvc
+          path: built
+
+      - name: Lay out the package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msi = Get-ChildItem built -Recurse -Filter *.msi | Select-Object -First 1
+          if (-not $msi) { throw 'No MSI in the build output' }
+          $extract = Join-Path $env:RUNNER_TEMP 'msi'
+          $p = Start-Process msiexec.exe -ArgumentList '/a', "`"$($msi.FullName)`"", '/qn', "TARGETDIR=`"$extract`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "MSI extract failed: $($p.ExitCode)" }
+          $exe = Get-ChildItem $extract -Recurse -Filter *.exe | Where-Object { $_.Name -notmatch 'unins|uninstall' } | Select-Object -First 1
+          if (-not $exe) { throw 'App executable not found in the MSI' }
+          New-Item -ItemType Directory pkg | Out-Null
+          Copy-Item "$($exe.Directory.FullName)\*" pkg -Recurse
+          New-Item -ItemType Directory pkg/Assets | Out-Null
+          foreach ($n in 'StoreLogo','Square44x44Logo','Square71x71Logo','Square150x150Logo','Square310x310Logo') {
+            Copy-Item "src-tauri/icons/$n.png" "pkg/Assets/$n.png"
+          }
+          $m = Get-Content store/AppxManifest.xml -Raw
+          $m = $m.Replace('__IDENTITY_NAME__', '${{ inputs.identity_name }}').Replace('__PUBLISHER__', '${{ inputs.publisher }}')
+          $m = $m.Replace('__PUBLISHER_DISPLAY_NAME__', '${{ inputs.publisher_display_name }}').Replace('__VERSION__', '${{ inputs.msix_version }}')
+          $m = $m.Replace('__EXE__', $exe.Name)
+          Set-Content pkg/AppxManifest.xml $m -Encoding utf8
+          Get-ChildItem pkg | Format-Table Name, Length
+
+      - name: Pack the MSIX
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $sdk = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Directory | Where-Object Name -like '10.*' | Sort-Object Name -Descending | Select-Object -First 1
+          $tools = Join-Path $sdk.FullName 'x64'
+          "TOOLS=$tools" | Out-File -Append $env:GITHUB_ENV
+          New-Item -ItemType Directory out | Out-Null
+          & "$tools\makeappx.exe" pack /d pkg /p out/NSM-Flow-store-x64.msix /o
+          if ($LASTEXITCODE -ne 0) { throw "makeappx failed: $LASTEXITCODE" }
+          (Get-FileHash out/NSM-Flow-store-x64.msix).Hash
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nsm-flow-store-msix
+          path: out/NSM-Flow-store-x64.msix
+
+      - name: Install on this clean machine and open it
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # A throwaway test certificate stands in for the Store's signature.
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject '${{ inputs.publisher }}' -CertStoreLocation Cert:\CurrentUser\My -NotAfter (Get-Date).AddDays(2)
+          Copy-Item out/NSM-Flow-store-x64.msix test.msix
+          & "$env:TOOLS\signtool.exe" sign /fd SHA256 /sha1 $cert.Thumbprint test.msix
+          if ($LASTEXITCODE -ne 0) { throw "test signing failed" }
+          Export-Certificate -Cert $cert -FilePath test.cer | Out-Null
+          Import-Certificate -FilePath test.cer -CertStoreLocation Cert:\LocalMachine\TrustedPeople | Out-Null
+          Add-AppxPackage -Path test.msix
+          $pkg = Get-AppxPackage -Name '${{ inputs.identity_name }}'
+          if (-not $pkg) { throw 'Package did not install' }
+          Write-Host "Installed $($pkg.PackageFullName)"
+          Start-Process "shell:AppsFolder\$($pkg.PackageFamilyName)!NSMFlow"
+          Start-Sleep -Seconds 40
+          $proc = Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($pkg.InstallLocation) } | Select-Object -First 1
+          if (-not $proc) { Get-Process | Format-Table Name, Path; throw 'NSM Flow is not running from the Store package' }
+          Write-Host "Running from $($proc.Path)"
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory shots | Out-Null
+          $bmp.Save("shots/store-install.png")
+          $logs = Get-ChildItem "$env:LOCALAPPDATA\Packages\$($pkg.PackageFamilyName)" -Recurse -Filter *.log -ErrorAction SilentlyContinue
+          $logs | ForEach-Object { Write-Host "== $($_.FullName)"; Get-Content $_.FullName -Tail 60 }
+          $text = ($logs | Get-Content -Raw) -join "`n"
+          if ($text -notmatch 'Store start-at-login task') { throw 'The app did not recognise it is the Store install' }
+          if ($text -match 'Could not change Store start-at-login task') { throw 'Start at login did not work in the Store install' }
+          Stop-Process -Id $proc.Id -Force
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shot-store-install
+          path: shots/

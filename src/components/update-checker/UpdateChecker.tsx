@@ -30,6 +30,9 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   // updates" forever and every click fails silently, so fall back to sending
   // people to the page that actually has the newest installer.
   const [updaterUnavailable, setUpdaterUnavailable] = useState(false);
+  // Microsoft Store installs are updated by the Store, so this footer stays
+  // hidden there. null until the backend has answered.
+  const [isStoreInstall, setIsStoreInstall] = useState<boolean | null>(null);
 
   const { settings, isLoading } = useSettings();
   const settingsLoaded = !isLoading && settings !== null;
@@ -41,8 +44,15 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const contentLengthRef = useRef(0);
 
   useEffect(() => {
+    commands
+      .isStoreInstall()
+      .then(setIsStoreInstall)
+      .catch(() => setIsStoreInstall(false));
+  }, []);
+
+  useEffect(() => {
     // Wait for settings to load before doing anything
-    if (!settingsLoaded) return;
+    if (!settingsLoaded || isStoreInstall !== false) return;
 
     if (!updateChecksEnabled) {
       if (upToDateTimeoutRef.current) {
@@ -67,7 +77,7 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
       }
       updateUnlisten.then((fn) => fn());
     };
-  }, [settingsLoaded, updateChecksEnabled]);
+  }, [settingsLoaded, updateChecksEnabled, isStoreInstall]);
 
   // Update checking functions
   const checkForUpdates = async () => {
@@ -224,6 +234,8 @@ const UpdateChecker: React.FC<UpdateCheckerProps> = ({ className = "" }) => {
   const isUpdateClickable =
     !isUpdateDisabled &&
     (updateAvailable || updaterUnavailable || (!isChecking && !showUpToDate));
+
+  if (isStoreInstall) return null;
 
   return (
     <>

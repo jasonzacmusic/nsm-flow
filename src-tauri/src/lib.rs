@@ -19,6 +19,7 @@ pub mod portable;
 mod settings;
 mod shortcut;
 mod signal_handle;
+pub mod store_package;
 mod team_auth;
 mod transcription_coordinator;
 mod tray;
@@ -360,7 +361,10 @@ fn initialize_core_logic(app_handle: &AppHandle) {
     let autostart_manager = app_handle.autolaunch();
     let settings = settings::get_settings(app_handle);
 
-    if settings.autostart_enabled {
+    if store_package::is_store_package() {
+        // The Store package starts at login through its StartupTask instead.
+        store_package::set_start_at_login(settings.autostart_enabled);
+    } else if settings.autostart_enabled {
         // Enable autostart if user has opted in
         let _ = autostart_manager.enable();
     } else {
@@ -693,6 +697,7 @@ pub fn run(cli_args: CliArgs) {
             show_main_window_command,
             commands::cancel_operation,
             commands::is_portable,
+            commands::is_store_install,
             commands::begin_application_update,
             commands::end_application_update,
             commands::get_app_dir_path,
@@ -846,10 +851,15 @@ pub fn run(cli_args: CliArgs) {
         }));
     }
 
+    // The Microsoft Store updates its own installs, so the Store package
+    // leaves the in-app updater out.
+    if !store_package::is_store_package() {
+        builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    }
+
     builder
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_macos_permissions::init())

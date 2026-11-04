@@ -768,11 +768,15 @@ pub fn change_autostart_setting(app: AppHandle, enabled: bool) -> Result<(), Str
     settings::write_settings(&app, settings);
 
     // Apply the autostart setting immediately
-    let autostart_manager = app.autolaunch();
-    if enabled {
-        let _ = autostart_manager.enable();
+    if crate::store_package::is_store_package() {
+        crate::store_package::set_start_at_login(enabled);
     } else {
-        let _ = autostart_manager.disable();
+        let autostart_manager = app.autolaunch();
+        if enabled {
+            let _ = autostart_manager.enable();
+        } else {
+            let _ = autostart_manager.disable();
+        }
     }
 
     // Notify frontend

@@ -22,6 +22,12 @@ pub fn is_portable() -> bool {
 
 #[tauri::command]
 #[specta::specta]
+pub fn is_store_install() -> bool {
+    crate::store_package::is_store_package()
+}
+
+#[tauri::command]
+#[specta::specta]
 pub fn begin_application_update(app: AppHandle) -> Result<(), String> {
     app.state::<crate::transcription_coordinator::TranscriptionCoordinator>()
         .begin_update()

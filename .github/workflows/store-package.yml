@@ -85,6 +85,7 @@ jobs:
           $m = $m.Replace('__IDENTITY_NAME__', '${{ inputs.identity_name }}').Replace('__PUBLISHER__', '${{ inputs.publisher }}')
           $m = $m.Replace('__PUBLISHER_DISPLAY_NAME__', '${{ inputs.publisher_display_name }}').Replace('__VERSION__', '${{ inputs.msix_version }}')
           $m = $m.Replace('__EXE__', $exe.Name)
+          "EXE_NAME=$($exe.Name)" | Out-File -Append $env:GITHUB_ENV
           Set-Content pkg/AppxManifest.xml $m -Encoding utf8
           Get-ChildItem pkg | Format-Table Name, Length
 
@@ -120,7 +121,9 @@ jobs:
           $pkg = Get-AppxPackage -Name '${{ inputs.identity_name }}'
           if (-not $pkg) { throw 'Package did not install' }
           Write-Host "Installed $($pkg.PackageFullName)"
-          Start-Process "shell:AppsFolder\$($pkg.PackageFamilyName)!NSMFlow"
+          # Open it inside the package, as the Start menu would, with --debug so
+          # routine log lines reach the log file for the checks below.
+          Invoke-CommandInDesktopPackage -PackageFamilyName $pkg.PackageFamilyName -AppId NSMFlow -Command (Join-Path $pkg.InstallLocation '${{ env.EXE_NAME }}') -Args '--debug'
           Start-Sleep -Seconds 40
           $proc = Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($pkg.InstallLocation) } | Select-Object -First 1
           if (-not $proc) { Get-Process | Format-Table Name, Path; throw 'NSM Flow is not running from the Store package' }
@@ -131,7 +134,7 @@ jobs:
           [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           New-Item -ItemType Directory shots | Out-Null
           $bmp.Save("shots/store-install.png")
-          $logs = Get-ChildItem "$env:LOCALAPPDATA\Packages\$($pkg.PackageFamilyName)" -Recurse -Filter *.log -ErrorAction SilentlyContinue
+          $logs = Get-ChildItem "$env:LOCALAPPDATA\Packages\$($pkg.PackageFamilyName)", "$env:LOCALAPPDATA\com.nathanielschool.nsmflow" -Recurse -Filter 'nsm-flow*.log' -ErrorAction SilentlyContinue
           $logs | ForEach-Object { Write-Host "== $($_.FullName)"; Get-Content $_.FullName -Tail 60 }
           $text = ($logs | Get-Content -Raw) -join "`n"
           if ($text -notmatch 'Store start-at-login task') { throw 'The app did not recognise it is the Store install' }

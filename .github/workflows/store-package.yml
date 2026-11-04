@@ -25,12 +25,17 @@ on:
         description: Four-part version; the last part must be 0 for the Store
         required: true
         default: 0.3.9.0
+      build_run_id:
+        description: Reuse the app build from this earlier run of this workflow (blank = build now)
+        required: false
+        default: ''
 
 permissions:
   contents: read
 
 jobs:
   build:
+    if: inputs.build_run_id == ''
     permissions:
       contents: write
     uses: ./.github/workflows/build.yml
@@ -44,7 +49,11 @@ jobs:
 
   package:
     needs: build
+    if: ${{ !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
     runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v5
 
@@ -52,6 +61,8 @@ jobs:
         with:
           name: nsm-flow-store-x86_64-pc-windows-msvc
           path: built
+          run-id: ${{ inputs.build_run_id || github.run_id }}
+          github-token: ${{ github.token }}
 
       - name: Lay out the package
         shell: pwsh
@@ -67,7 +78,7 @@ jobs:
           New-Item -ItemType Directory pkg | Out-Null
           Copy-Item "$($exe.Directory.FullName)\*" pkg -Recurse
           New-Item -ItemType Directory pkg/Assets | Out-Null
-          foreach ($n in 'StoreLogo','Square44x44Logo','Square71x71Logo','Square150x150Logo','Square310x310Logo') {
+          foreach ($n in 'StoreLogo','Square44x44Logo','Square71x71Logo','Square150x150Logo') {
             Copy-Item "src-tauri/icons/$n.png" "pkg/Assets/$n.png"
           }
           $m = Get-Content store/AppxManifest.xml -Raw

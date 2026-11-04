@@ -88,7 +88,7 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq
           # Cloud runners have no GPU; desktops ship these graphics libraries already.
-          sudo apt-get install -y -qq xvfb imagemagick x11-utils gdb libegl1 libgl1-mesa-dri libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick x11-utils gdb libegl1 libgl1-mesa-dri libfuse2 >/dev/null
+          sudo apt-get install -y -qq xvfb imagemagick x11-utils gdb dbus-x11 libegl1 libgl1-mesa-dri libfuse2t64 >/dev/null 2>&1 || sudo apt-get install -y -qq xvfb imagemagick x11-utils gdb dbus-x11 libegl1 libgl1-mesa-dri libfuse2 >/dev/null
           if [ "${{ matrix.kind }}" = deb ]; then
             curl -fsSL -o flow.deb "$BASE/NSM-Flow-linux-x64.deb"
             sudo apt-get install -y ./flow.deb
@@ -107,12 +107,14 @@ jobs:
           mkdir -p shots
           Xvfb :99 -screen 0 1280x800x24 & sleep 2
           export DISPLAY=:99 HANDY_NO_GTK_LAYER_SHELL=1 APPIMAGE_EXTRACT_AND_RUN=1 LIBGL_ALWAYS_SOFTWARE=1 WEBKIT_DISABLE_DMABUF_RENDERER=1
+          # A real desktop has a session message bus; without one GTK waits 25s for it.
+          eval "$(dbus-launch --sh-syntax)"
           "$BIN" > app.log 2>&1 & PID=$!
-          sleep 25
+          sleep 40
           if ! kill -0 $PID 2>/dev/null; then cat app.log; echo "NSM Flow exited early"; exit 1; fi
           xwininfo -root -tree | grep -i "flow" || echo "no NSM Flow window mapped"
           import -window root "shots/${{ matrix.os }}-${{ matrix.kind }}.png"
-          echo "Running after 25s, pid $PID"; tail -20 app.log || true
+          echo "Running after 40s, pid $PID"; tail -20 app.log || true
           ps -ef | grep -iE "nsm-flow|WebKit|bwrap" | grep -v grep || true
           find ~/.local/share ~/.config -ipath '*nsmflow*' -name '*.log' -exec tail -80 {} \; 2>/dev/null || true
           if ! xwininfo -root -tree | grep -q '"NSM Flow"'; then
